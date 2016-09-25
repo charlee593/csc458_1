@@ -77,6 +77,7 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(interface);
 
   printf("*** -> Received packet of length %d \n",len);
+  printf("*** -> Hello";
 
   /* fill in code here */
 
