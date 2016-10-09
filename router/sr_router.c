@@ -156,7 +156,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		memcpy(reply_packet + sizeof(struct sr_ethernet_hdr), reply_packet_arp_header, sizeof(struct sr_arp_hdr));
 
 		/*Send packet*/
-		sr_send_packet(sr, reply_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), interface);
+		sr_send_packet(sr, ((uint8_t*)reply_packet) , sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), iface->name);
 
 		free(reply_packet_ethernet_header);
 		free(reply_packet_arp_header);
