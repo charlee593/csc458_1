@@ -13,7 +13,8 @@
 
 #include <stdio.h>
 #include <assert.h>
-
+#include <stdlib.h>
+#include <string.h>
 
 #include "sr_if.h"
 #include "sr_rt.h"
@@ -81,24 +82,86 @@ void sr_handlepacket(struct sr_instance* sr,
   /* fill in code here */
   struct sr_ethernet_hdr* e_hdr = 0;
   struct sr_arp_hdr*       a_hdr = 0;
+  struct sr_if* iface = sr_get_interface(sr, interface);
 
   e_hdr = (struct sr_ethernet_hdr*)packet;
 
   printf("---->> Interface %s<----\n",interface);
   if (e_hdr->ether_type == htons(ethertype_arp))
   {
-	printf("---->> Packet type ARP %u, %u<----\n",(unsigned)htons(e_hdr->ether_type), (unsigned)e_hdr->ether_type);
-
 	a_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
 
-    struct in_addr ip_addr;
-    ip_addr.s_addr = a_hdr->ar_tip;
-    printf("The IP address is %s\n", inet_ntoa(ip_addr));
+	printf("---->> Packet type ARP %u, %u<----\n",(unsigned)htons(e_hdr->ether_type), (unsigned)e_hdr->ether_type);
+	printf("---->> An ARP packet protocol type %u, %u <----\n", a_hdr->ar_pro, htons(a_hdr->ar_pro));
 
-	printf("---->> An ARP packet <----\n");
-	printf("---->> An ARP packet protocal type %u, %u <----\n", a_hdr->ar_pro, htons(a_hdr->ar_pro));
+	/*ARP request to me*/
+	if(a_hdr->ar_op == htons(arp_op_request) )
+	{
+		/*Construct an ARP reply and send it back*/
+		struct sr_ethernet_hdr* reply_packet_ethernet_header = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
+		struct sr_arp_hdr* reply_packet_arp_header = ((struct sr_arp_hdr*)malloc(sizeof(struct sr_arp_hdr)));
 
+		/*Ethernet header - Destination Address*/
+		int i;
+		for (i = 0; i < ETHER_ADDR_LEN; i++)
+		{
+			reply_packet_ethernet_header->ether_dhost[i] = e_hdr->ether_shost[i];
+		}
 
+		/*Ethernet header - Source Address*/
+		for (i = 0; i < ETHER_ADDR_LEN; i++)
+		{
+			reply_packet_ethernet_header->ether_shost[i] = ((uint8_t)iface->addr[i]);
+		}
+
+		/*Ethernet header - Type*/
+		reply_packet_ethernet_header->ether_type = e_hdr->ether_type;
+
+		/*ARP header - Hardware type*/
+		reply_packet_arp_header->ar_hrd = a_hdr->ar_hrd;
+
+		/*ARP header - Protocol type*/
+		reply_packet_arp_header->ar_pro = a_hdr->ar_pro;
+
+		/*ARP header - Hardware address length*/
+		reply_packet_arp_header->ar_hln = a_hdr->ar_hln;
+
+		/*ARP header - Protocol address length*/
+		reply_packet_arp_header->ar_pln = a_hdr->ar_pln;
+
+		/*ARP header - Opcode*/
+		reply_packet_arp_header->ar_op = htons(arp_op_reply);
+
+		/*ARP header - Source hardware address*/
+		for (i = 0; i < ETHER_ADDR_LEN; i++)
+		{
+			reply_packet_arp_header->ar_sha[i] = iface->addr[i];
+		}
+
+		/*ARP header - Source protocol address*/
+		reply_packet_arp_header->ar_sip = a_hdr->ar_tip;
+
+		/*ARP header - Destination hardware address*/
+		for (i = 0; i < ETHER_ADDR_LEN; i++)
+		{
+			reply_packet_arp_header->ar_tha[i] = a_hdr->ar_sha[i];
+		}
+
+		/*ARP header - Destination protocol address*/
+		reply_packet_arp_header->ar_tip = a_hdr->ar_sip;
+
+		/*Create packet*/
+		uint8_t* reply_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr)));
+		memcpy(reply_packet, reply_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
+		memcpy(reply_packet, reply_packet_arp_header, sizeof(struct sr_arp_hdr));
+
+		/*Send packet*/
+		sr_send_packet(sr, reply_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), interface);
+
+		free(reply_packet_ethernet_header);
+		free(reply_packet_arp_header);
+
+	}
 
   }
   else
