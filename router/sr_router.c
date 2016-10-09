@@ -91,7 +91,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 	a_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
 	printf("---->> An ARP packet <----\n");
-	printf("---->> An ARP packet target ip  %"PRIu32"<----\n", htons(a_hdr->ar_tip));
+	printf("---->> An ARP packet target ip  %u, %u<----\n", (unsigned)htons(a_hdr->ar_tip), (unsigned)a_hdr->ar_tip);
 
 
   }
