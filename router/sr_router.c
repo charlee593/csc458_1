@@ -153,7 +153,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		/*Create packet*/
 		uint8_t* reply_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr)));
 		memcpy(reply_packet, reply_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
-		memcpy(reply_packet, reply_packet_arp_header, sizeof(struct sr_arp_hdr));
+		memcpy(reply_packet + sizeof(struct sr_ethernet_hdr), reply_packet_arp_header, sizeof(struct sr_arp_hdr));
 
 		/*Send packet*/
 		sr_send_packet(sr, reply_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), interface);
