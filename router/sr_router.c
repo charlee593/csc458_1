@@ -160,7 +160,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
 		free(reply_packet_ethernet_header);
 		free(reply_packet_arp_header);
-
 	}
 
   }
