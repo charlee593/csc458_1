@@ -85,7 +85,15 @@ void sr_handlepacket(struct sr_instance* sr,
   e_hdr = (struct sr_ethernet_hdr*)packet;
 
   printf("---->> Interface %s<----\n",interface);
-  printf("---->> Packet type %hu %hu<----\n",htons(e_hdr->ether_type), e_hdr->ether_type);
+  if (e_hdr->ether_type == htons(ethertype_arp))
+  {
+	  printf("---->> Packet type ARP %hu<----\n",htons(e_hdr->ether_type));
+  }
+  else
+  {
+	  printf("---->> Packet type IP %hu<----\n",htons(e_hdr->ether_type));
+
+  }
 
   if (len < sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr) )
   {
