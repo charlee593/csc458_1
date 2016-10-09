@@ -87,11 +87,11 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("---->> Interface %s<----\n",interface);
   if (e_hdr->ether_type == htons(ethertype_arp))
   {
-	printf("---->> Packet type ARP %hu<----\n",htons(e_hdr->ether_type));
+	printf("---->> Packet type ARP %"PRIu16"<----\n",htons(e_hdr->ether_type));
 
 	a_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
 	printf("---->> An ARP packet <----\n");
-	printf("---->> An ARP packet target ip  %"PRIu32"<----\n", a_hdr->ar_tip);
+	printf("---->> An ARP packet target ip  %"PRIu32"<----\n", htons(a_hdr->ar_tip));
   }
   else
   {
