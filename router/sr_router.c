@@ -90,8 +90,12 @@ void sr_handlepacket(struct sr_instance* sr,
 	printf("---->> Packet type ARP %u, %u<----\n",(unsigned)htons(e_hdr->ether_type), (unsigned)e_hdr->ether_type);
 
 	a_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+
+    struct in_addr ip_addr;
+    ip_addr.s_addr = a_hdr->ar_tip;
+    printf("The IP address is %s\n", inet_ntoa(ip_addr));
+
 	printf("---->> An ARP packet <----\n");
-	printf("---->> An ARP packet target ip  %u, %u, %x, %x<----\n", (unsigned)htons(a_hdr->ar_tip), (unsigned)a_hdr->ar_tip, htons(a_hdr->ar_tip), a_hdr->ar_tip);
 
 
   }
