@@ -79,6 +79,17 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("*** -> Received packet of length %d \n",len);
 
   /* fill in code here */
+  struct sr_if* iface = sr_get_interface(sr, interface);
+  struct sr_ethernet_hdr* e_hdr = 0;
+  struct sr_arp_hdr*       a_hdr = 0;
+
+  if (len < sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr) )
+  {
+		e_hdr = (struct sr_ethernet_hdr*)packet;
+		a_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+		printf("---->> An ARP packet <----\n");
+		printf("---->> An ARP packet target ip  %d<----\n", a_hdr->ar_tip);
+  }
 
 }/* end sr_ForwardPacket */
 
