@@ -96,6 +96,8 @@ void sr_handlepacket(struct sr_instance* sr,
     printf("The IP address is %s\n", inet_ntoa(ip_addr));
 
 	printf("---->> An ARP packet <----\n");
+	printf("---->> An ARP packet protocal type %u, %u <----\n", a_hdr->ar_pro, htons(a_hdr->ar_pro));
+
 
 
   }
