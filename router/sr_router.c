@@ -80,8 +80,7 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("*** -> Received packet of length %d \n",len);
 
   /* fill in code here */
-  struct sr_ethernet_hdr* e_hdr = 0;
-  struct sr_arp_hdr*       a_hdr = 0;
+  struct sr_ethernet_hdr* e_hdr;
   struct sr_if* iface = sr_get_interface(sr, interface);
 
   e_hdr = (struct sr_ethernet_hdr*)packet;
@@ -89,6 +88,7 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("---->> Interface %s<----\n",interface);
   if (e_hdr->ether_type == htons(ethertype_arp))
   {
+	struct sr_arp_hdr* a_hdr;
 	a_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
 
 	printf("---->> Packet type ARP %u, %u<----\n",(unsigned)htons(e_hdr->ether_type), (unsigned)e_hdr->ether_type);
@@ -160,12 +160,43 @@ void sr_handlepacket(struct sr_instance* sr,
 
 		free(reply_packet_ethernet_header);
 		free(reply_packet_arp_header);
+		free(reply_packet);
 	}
 
   }
   else
   {
-	  printf("---->> Packet type IP %hu<----\n",htons(e_hdr->ether_type));
+	printf("---->> Packet type IP<----\n");
+	struct sr_ip_hdr* ip_hdr;
+	ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+	print_hdr_ip((uint8_t*)ip_hdr);
+
+	/*Check packet checksum*/
+	if(ip_hdr->ip_sum != cksum(ip_hdr, sizeof(ip_hdr)))
+	{
+		printf("---->> Checksum not good<----\n");
+
+	}
+	else
+	{
+		printf("---->> Checksum good<----\n");
+
+	}
+
+	/*Check TTL*/
+
+	/* If ICMP
+	*
+	* Echo reply (type 0) It's for me
+	* Destination net unreachable (type 3, code 0) Not for me -> Not match
+	* Destination host unreachable (type 3, code 1) Not for me -> Match -> Miss -> Resent > 5 times
+	* Port unreachable (type 3, code 3) It's for me
+	* Time exceeded (type 11, code 0) It's for me && Not for me
+	*
+	* */
+
+
+
 
   }
 
