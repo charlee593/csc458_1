@@ -40,10 +40,10 @@ void handle_arpreq(struct sr_arpreq *req)
         }
         else
         {
-
-
         	printf("---->> Send ARP request<----\n");
-
+        	time(&now);
+        	req->sent = now;
+        	req->times_sent++;
         }
 
     }
