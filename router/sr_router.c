@@ -194,12 +194,11 @@ void sr_handlepacket(struct sr_instance* sr,
 					e_hdr->ether_shost[i] = ((uint8_t)iface->addr[i]);
 				}
 
-				struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(e_hdr + sizeof(struct sr_ethernet_hdr));
-
 				/*Decrement the TTL by 1, and recompute the packet checksum over the modified header.*/
-				ip_hdr->ip_ttl = ip_hdr->ip_ttl - 1;
-				ip_hdr->ip_sum = 0;
-				ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
+				((struct sr_ip_hdr*)(e_hdr + sizeof(struct sr_ethernet_hdr)))->ip_ttl--;
+				((struct sr_ip_hdr*)(e_hdr + sizeof(struct sr_ethernet_hdr)))->ip_sum = 0;
+				((struct sr_ip_hdr*)(e_hdr + sizeof(struct sr_ethernet_hdr)))->ip_sum =
+						cksum(((struct sr_ip_hdr*)(e_hdr + sizeof(struct sr_ethernet_hdr))), sizeof(struct sr_ip_hdr));
 
 				print_hdrs(curr_packets_to_send->buf, curr_packets_to_send->len);
 
