@@ -201,6 +201,8 @@ void sr_handlepacket(struct sr_instance* sr,
 				ip_hdr->ip_sum = 0;
 				ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
 
+				print_hdrs(curr_packets_to_send->buf, curr_packets_to_send->len);
+
 				/*Send packet*/
 				sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, iface->name);
 
