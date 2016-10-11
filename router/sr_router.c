@@ -178,14 +178,14 @@ void sr_handlepacket(struct sr_instance* sr,
 			printf("---->> ARP Reply send outstanding packet<----\n");
 			while(curr_packets_to_send != NULL)
 			{
-				struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send->buf;
+				struct sr_ethernet_hdr* curr_e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send->buf;
 
 				/*Ethernet header - Destination Address*/
-				memcpy(e_hdr->ether_shost, a_hdr->ar_tha, ETHER_ADDR_LEN);
+				memcpy(curr_e_hdr->ether_shost, a_hdr->ar_tha, ETHER_ADDR_LEN);
 
 
 				/*Ethernet header - Source Address*/
-				memcpy(e_hdr->ether_dhost, a_hdr->ar_sha, ETHER_ADDR_LEN);
+				memcpy(curr_e_hdr->ether_dhost, a_hdr->ar_sha, ETHER_ADDR_LEN);
 
 				/*Send packet*/
 				sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, iface->name);
