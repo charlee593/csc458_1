@@ -44,7 +44,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         else
         {
         	printf("---->> Send ARP request<----\n");
-        	/*Find match interface in routing table */
+        	/*Find match interface in routing table LPM*/
         	struct sr_rt* curr_routing_entry = sr->routing_table;
         	while(curr_routing_entry != NULL)
         	{

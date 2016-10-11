@@ -187,7 +187,7 @@ void sr_handlepacket(struct sr_instance* sr,
 				memcpy(curr_e_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
 
 				/*Send packet*/
-				sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, iface->name);
+				sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, interface);
 
 				curr_packets_to_send = curr_packets_to_send->next;
 			}
@@ -226,7 +226,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	}
 	ip_hdr->ip_sum = ip_checksum_temp;
 
-	/*Check if it is for me LPM*/
+	/*Check if it is for me*/
 	struct sr_if* curr_if = sr->if_list;
 	while(curr_if != NULL)
 	{
@@ -260,6 +260,24 @@ void sr_handlepacket(struct sr_instance* sr,
 		if(entry)
 		{
 			printf("---->> Found mac add in cache, forward packet<----\n");
+
+			/*Find match interface in routing table LPM*/
+			struct sr_rt* curr_routing_entry = sr->routing_table;
+			while(curr_routing_entry != NULL)
+			{
+				if (curr_routing_entry->dest.s_addr == ip_hdr->ip_dst)
+				{
+					printf("---->> Match with %s<----\n", curr_routing_entry->interface);
+					struct sr_if* match_iface = sr_get_interface(sr, curr_routing_entry->interface);
+					/*Swap ethernet address*/
+					memcpy(e_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
+					/*Ethernet header - Source Address*/
+					memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
+					/*Send packet*/
+					sr_send_packet(sr, packet, len, match_iface->name);
+				}
+				curr_routing_entry = curr_routing_entry->next;
+			}
 			free(entry);
 		}
 		else
