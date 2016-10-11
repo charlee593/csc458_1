@@ -47,6 +47,9 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         	struct sr_if* curr_if = sr->if_list;
         	while(curr_if != NULL)
         	{
+        		print_addr_ip_int(curr_if->ip);
+        		print_addr_ip_int(req->ip);
+
         		if (req->ip == curr_if->ip)
         		{
         			printf("---->> Send ARP request ip Addres<----\n");
