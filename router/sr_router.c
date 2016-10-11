@@ -181,17 +181,11 @@ void sr_handlepacket(struct sr_instance* sr,
 				struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send->buf;
 
 				/*Ethernet header - Destination Address*/
-				int i;
-				for (i = 0; i < ETHER_ADDR_LEN; i++)
-				{
-					e_hdr->ether_dhost[i] = ((uint8_t)a_hdr->ar_sha[i]);
-				}
+				memcpy(e_hdr->ether_shost, a_hdr->ar_tha, ETHER_ADDR_LEN);
+
 
 				/*Ethernet header - Source Address*/
-				for (i = 0; i < ETHER_ADDR_LEN; i++)
-				{
-					e_hdr->ether_shost[i] = ((uint8_t)iface->addr[i]);
-				}
+				memcpy(e_hdr->ether_dhost, a_hdr->ar_sha, ETHER_ADDR_LEN);
 
 				/*Send packet*/
 				sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, iface->name);
