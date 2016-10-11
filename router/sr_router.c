@@ -170,16 +170,42 @@ void sr_handlepacket(struct sr_instance* sr,
 		if req:
 			send all packets on the req->packets linked list
 			arpreq_destroy(req)*/
-		struct sr_arpreq* curr_req = sr_arpcache_insert(&sr->cache, a_hdr->ar_sha, a_hdr->ar_sip);
-		if(curr_req)
+		struct sr_arpreq* req = sr_arpcache_insert(&sr->cache, a_hdr->ar_sha, a_hdr->ar_sip);
+		if(req)
 		{
-			struct sr_packet* packets_to_send = curr_req->packets;
+			struct sr_packet* curr_packets_to_send = req->packets;
 
-			/*Decrement the TTL by 1, and recompute the packet checksum over the modified header.*/
 			printf("---->> ARP Reply send outstanding packet<----\n");
-			print_hdrs(packets_to_send->buf, packets_to_send->len);
-			/*Send packet*/
-			/*sr_send_packet(sr, curr_req->packets, curr_req->packets->len, iface->name);*/
+			while(curr_packets_to_send != NULL)
+			{
+				struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send;
+
+				/*Ethernet header - Destination Address*/
+				int i;
+				for (i = 0; i < ETHER_ADDR_LEN; i++)
+				{
+					e_hdr->ether_dhost[i] = ((uint8_t)a_hdr->ar_sha);
+				}
+
+				/*Ethernet header - Source Address*/
+				for (i = 0; i < ETHER_ADDR_LEN; i++)
+				{
+					e_hdr->ether_shost[i] = ((uint8_t)iface->addr[i]);
+				}
+
+				struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(curr_packets_to_send + sizeof(struct sr_ethernet_hdr));
+
+				/*Decrement the TTL by 1, and recompute the packet checksum over the modified header.*/
+				ip_hdr->ip_ttl--;
+				ip_hdr->ip_sum = 0;
+				ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
+
+				/*Send packet*/
+				sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, iface->name);
+
+				curr_packets_to_send = curr_packets_to_send->next;
+			}
+			sr_arpreq_destroy(&sr->cache, req);
 		}
 	}
 	else
@@ -201,8 +227,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	*
 	* */
 	printf("---->> Packet type IP<----\n");
-	struct sr_ip_hdr* ip_hdr;
-	ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+	struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
 	print_hdr_ip((uint8_t*)ip_hdr);
 
 	/*Check packet checksum*/

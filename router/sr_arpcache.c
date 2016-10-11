@@ -126,7 +126,6 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         		}
         		curr_routing_entry = curr_routing_entry->next;
         	}
-    		printf("---->> Failed to find ip in routing table send icmp<----\n");
         }
 
     }
