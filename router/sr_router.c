@@ -230,7 +230,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		else
 		{
 			struct sr_arpreq * req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, ip_hdr->ip_len, interface);
-			handle_arpreq(req);
+			handle_arpreq(req, sr);
 		}
 	}
   }

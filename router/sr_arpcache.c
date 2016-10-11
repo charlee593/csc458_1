@@ -26,7 +26,7 @@
                req->times_sent++
 
    --*/
-void handle_arpreq(struct sr_arpreq *req)
+void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 {
     time_t now;
     time(&now);
@@ -37,6 +37,7 @@ void handle_arpreq(struct sr_arpreq *req)
 /*            send icmp host unreachable to source addr of all pkts waiting
               on this request*/
         	printf("---->> Send ICMP host unreachable<----\n");
+        	sr_arpreq_destroy(&sr->cache, req);
         }
         else
         {
@@ -60,7 +61,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 	 struct sr_arpreq* curr_req = sr->cache.requests;
 	 while(curr_req !=NULL)  /*loops the linked list till all reqs are complete*/
 	 {
-	   handle_arpreq(curr_req);
+	   handle_arpreq(curr_req, sr);
 	   curr_req=curr_req->next;
 	 }
 }

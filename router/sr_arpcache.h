@@ -106,7 +106,7 @@ struct sr_arpcache {
     pthread_mutexattr_t attr;
 };
 
-void handle_arpreq(struct sr_arpreq *req);
+void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr);
 void sr_arpcache_sweepreqs(struct sr_instance *sr) ;
 
 /* Checks if an IP->MAC mapping is in the cache. IP is in network byte order. 
