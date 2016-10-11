@@ -28,6 +28,25 @@
    --*/
 void handle_arpreq(struct sr_arpreq *req)
 {
+    time_t now;
+    time(&now);
+    if(difftime(now, req->sent) > 1.0)
+    {
+        if(req->times_sent >= 5)
+        {
+/*            send icmp host unreachable to source addr of all pkts waiting
+              on this request*/
+        	printf("---->> Send ICMP host unreachable<----\n");
+        }
+        else
+        {
+
+
+        	printf("---->> Send ARP request<----\n");
+
+        }
+
+    }
 
 }
 
@@ -38,6 +57,12 @@ void handle_arpreq(struct sr_arpreq *req)
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
+	 struct sr_arpreq* curr_req = sr->cache.requests;
+	 while(curr_req !=NULL)  /*loops the linked list till all reqs are complete*/
+	 {
+	   handle_arpreq(curr_req);
+	   curr_req=curr_req->next;
+	 }
 }
 
 /* You should not need to touch the rest of this code. */
