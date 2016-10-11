@@ -191,10 +191,10 @@ void sr_handlepacket(struct sr_instance* sr,
 	ip_hdr->ip_sum = ip_checksum_temp;
 
 	/*Check if it is for me*/
-	struct sr_if* router_if = sr->if_list;
-	while(router_if != NULL)
+	struct sr_if* curr_if = sr->if_list;
+	while(curr_if != NULL)
 	{
-		if (ip_hdr->ip_dst == router_if->ip)
+		if (ip_hdr->ip_dst == curr_if->ip)
 		{
 			/*Check TTL*/
 			if(ip_hdr->ip_ttl <=1)
@@ -203,18 +203,35 @@ void sr_handlepacket(struct sr_instance* sr,
 			}
 			printf("---->> Its for me<----\n");
 		}
-
-		router_if = router_if->next;
+		curr_if = curr_if->next;
 	}
 
 	/*It is for not me*/
-	if(router_if == NULL)
+	if(curr_if == NULL)
 	{
 		if(ip_hdr->ip_ttl <=1)
 		{
 			printf("---->> Send ICMP (type 11, code 0)<----\n");
 		}
 		printf("---->> Its for not me<----\n");
+/*		   entry = arpcache_lookup(next_hop_ip)
+
+		   if entry:
+		       use next_hop_ip->mac mapping in entry to send the packet
+		       free entry
+		   else:
+		       req = arpcache_queuereq(next_hop_ip, packet, len)
+		       handle_arpreq(req)*/
+		struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, ip_hdr->ip_dst);
+		if(entry)
+		{
+			free(entry);
+		}
+		else
+		{
+			struct sr_arpreq * req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, ip_hdr->ip_len, interface);
+			handle_arpreq(req);
+		}
 	}
   }
 

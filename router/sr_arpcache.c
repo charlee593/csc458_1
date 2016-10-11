@@ -11,6 +11,26 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 
+/*   The handle_arpreq() function is a function you should write, and it should
+   handle sending ARP requests if necessary:
+
+   function handle_arpreq(req):
+       if difftime(now, req->sent) > 1.0
+           if req->times_sent >= 5:
+               send icmp host unreachable to source addr of all pkts waiting
+                 on this request
+               arpreq_destroy(req)
+           else:
+               send arp request
+               req->sent = now
+               req->times_sent++
+
+   --*/
+void handle_arpreq(struct sr_arpreq *req)
+{
+
+}
+
 /* 
   This function gets called every second. For each request sent out, we keep
   checking whether we should resend an request or destroy the arp request.
