@@ -183,9 +183,8 @@ void sr_handlepacket(struct sr_instance* sr,
 				/*Ethernet header - Destination Address*/
 				memcpy(curr_e_hdr->ether_shost, a_hdr->ar_tha, ETHER_ADDR_LEN);
 
-
 				/*Ethernet header - Source Address*/
-				memcpy(curr_e_hdr->ether_dhost, a_hdr->ar_sha, ETHER_ADDR_LEN);
+				memcpy(curr_e_hdr->ether_dhost, iface->addr, ETHER_ADDR_LEN);
 
 				/*Send packet*/
 				sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, iface->name);
