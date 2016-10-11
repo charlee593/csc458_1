@@ -47,7 +47,19 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         	/*Find match interface in routing table */
         	sr_print_routing_table(sr);
 
+        	struct sr_rt* curr_routing_entry = sr->routing_table;
+        	while(curr_routing_entry != NULL)
+        	{
+        		if (curr_routing_entry->dest.s_addr == req->ip)
+        		{
+        			printf("---->> Match with %s<----\n", curr_routing_entry->interface);
+        		}
+        		curr_routing_entry = curr_routing_entry->next;
+        	}
 
+        	time(&now);
+            req->sent = now;
+            req->times_sent++;
         }
 
     }

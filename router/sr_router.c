@@ -190,7 +190,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	}
 	ip_hdr->ip_sum = ip_checksum_temp;
 
-	/*Check if it is for me*/
+	/*Check if it is for me LPM*/
 	struct sr_if* curr_if = sr->if_list;
 	while(curr_if != NULL)
 	{
