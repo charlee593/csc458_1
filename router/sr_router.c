@@ -261,22 +261,16 @@ void sr_handlepacket(struct sr_instance* sr,
 		{
 			printf("---->> Found mac add in cache, forward packet<----\n");
 
-			/*Find match interface in routing table LPM*/
-			struct sr_rt* curr_routing_entry = sr->routing_table;
-			while(curr_routing_entry != NULL)
+			/*Forward packet*/
+			struct sr_if* match_iface = lpm(sr, ip_hdr->ip_dst);
+			if(match_iface)
 			{
-				if (curr_routing_entry->dest.s_addr == ip_hdr->ip_dst)
-				{
-					printf("---->> Match with %s<----\n", curr_routing_entry->interface);
-					struct sr_if* match_iface = sr_get_interface(sr, curr_routing_entry->interface);
-					/*Swap ethernet address*/
-					memcpy(e_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
-					/*Ethernet header - Source Address*/
-					memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
-					/*Send packet*/
-					sr_send_packet(sr, packet, len, match_iface->name);
-				}
-				curr_routing_entry = curr_routing_entry->next;
+				/*Swap ethernet address*/
+				memcpy(e_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
+				/*Ethernet header - Source Address*/
+				memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
+				/*Send packet*/
+				sr_send_packet(sr, packet, len, match_iface->name);
 			}
 			free(entry);
 		}
@@ -289,3 +283,20 @@ void sr_handlepacket(struct sr_instance* sr,
   }
 
 }/* end sr_ForwardPacket */
+
+/*
+  Check routing table, perform LPM
+*/
+struct sr_if* lpm(struct sr_instance *sr, uint32_t ip) {
+	/*Find match interface in routing table LPM*/
+	struct sr_rt* curr_routing_entry = sr->routing_table;
+	while(curr_routing_entry != NULL)
+	{
+		if (curr_routing_entry->dest.s_addr == ip)
+		{
+			return sr_get_interface(sr, curr_routing_entry->interface);
+		}
+		curr_routing_entry = curr_routing_entry->next;
+	}
+	return NULL;
+}/* end lpm */
