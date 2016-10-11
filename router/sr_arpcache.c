@@ -37,14 +37,27 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 /*            send icmp host unreachable to source addr of all pkts waiting
               on this request*/
         	printf("---->> Send ICMP host unreachable<----\n");
-        	sr_arpreq_destroy(&sr->cache, req);
+        	sr_arpreq_destroy(sr->cache, req);
         }
         else
         {
         	printf("---->> Send ARP request<----\n");
-        	time(&now);
-        	req->sent = now;
-        	req->times_sent++;
+        	/*Check if it is for me*/
+        	struct sr_if* curr_if = sr->if_list;
+        	while(curr_if != NULL)
+        	{
+        		if (req->ip == curr_if->ip)
+        		{
+        			printf("---->> Send ARP request ip Addres<----\n");
+        			print_addr_ip_int(curr_if->ip);
+
+                	time(&now);
+                	req->sent = now;
+                	req->times_sent++;
+        		}
+        		curr_if = curr_if->next;
+        	}
+
         }
 
     }
