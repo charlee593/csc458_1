@@ -172,9 +172,9 @@ void sr_handlepacket(struct sr_instance* sr,
 	print_hdr_ip((uint8_t*)ip_hdr);
 
 	/*Check packet checksum*/
-	if(ip_hdr->ip_sum != cksum(ip_hdr, ip_hdr->ip_len))
+	if(ip_hdr->ip_sum != cksum(ip_hdr, htons(ip_hdr->ip_len))))
 	{
-		printf("---->> Checksum not good %u<----\n", cksum(ip_hdr, ip_hdr->ip_len));
+		printf("---->> Checksum not good %u<----\n", cksum(ip_hdr, htons(ip_hdr->ip_len)));
 
 	}
 	else
