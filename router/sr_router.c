@@ -184,7 +184,7 @@ void sr_handlepacket(struct sr_instance* sr,
 				int i;
 				for (i = 0; i < ETHER_ADDR_LEN; i++)
 				{
-					e_hdr->ether_dhost[i] = ((uint8_t)a_hdr->ar_sha);
+					e_hdr->ether_dhost[i] = ((uint8_t)a_hdr->ar_sha[i]);
 				}
 
 				/*Ethernet header - Source Address*/
