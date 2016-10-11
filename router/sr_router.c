@@ -179,6 +179,10 @@ void sr_handlepacket(struct sr_instance* sr,
 		printf("---->> Checksum not good %u<----\n", cksum(ip_hdr, sizeof(struct sr_ip_hdr)));
 		ip_hdr->ip_sum = 0;
 		printf("---->> Checksum not good %u<----\n", cksum(ip_hdr,20));
+		printf("---->> Checksum not good %u<----\n", cksum(ip_hdr, sizeof(struct sr_ip_hdr)));
+		printf("---->> Checksum not good %u<----\n", cksum(ip_hdr, htons(ip_hdr->ip_len)));
+
+
 
 	}
 	else
