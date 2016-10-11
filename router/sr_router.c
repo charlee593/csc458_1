@@ -197,7 +197,7 @@ void sr_handlepacket(struct sr_instance* sr,
 				struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(e_hdr + sizeof(struct sr_ethernet_hdr));
 
 				/*Decrement the TTL by 1, and recompute the packet checksum over the modified header.*/
-				ip_hdr->ip_ttl--;
+				ip_hdr->ip_ttl = ip_hdr->ip_ttl - 1;
 				ip_hdr->ip_sum = 0;
 				ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
 
