@@ -178,6 +178,7 @@ void sr_handlepacket(struct sr_instance* sr,
 			printf("---->> ARP Reply send outstanding packet<----\n");
 			while(curr_packets_to_send != NULL)
 			{
+				print_hdrs(curr_packets_to_send->buf, curr_packets_to_send->len);
 				struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send->buf;
 
 				/*Ethernet header - Destination Address*/
