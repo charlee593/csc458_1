@@ -175,7 +175,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	ip_hdr->ip_sum = 0;
 	if(ip_hdr->ip_sum != cksum(ip_hdr, sizeof(struct sr_ip_hdr)))
 	{
-		printf("---->> Checksum not good<----\n");
+		printf("---->> Checksum not good %u<----\n",cksum(ip_hdr, sizeof(struct sr_ip_hdr)));
 
 	}
 	else
