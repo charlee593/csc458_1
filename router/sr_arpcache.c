@@ -36,7 +36,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
     {
         if(req->times_sent >= 5)
         {
-/*            send icmp host unreachable to source addr of all pkts waiting
+        	/* send icmp host unreachable to source addr of all pkts waiting
               on this request*/
         	printf("---->> Send ICMP host unreachable<----\n");
         	sr_arpreq_destroy(&sr->cache, req);
@@ -126,6 +126,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         		}
         		curr_routing_entry = curr_routing_entry->next;
         	}
+    		printf("---->> Failed to find ip in routing table send icmp<----\n");
         }
 
     }

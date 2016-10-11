@@ -162,6 +162,31 @@ void sr_handlepacket(struct sr_instance* sr,
 		free(reply_packet_arp_header);
 		free(reply_packet);
 	}
+	else if(a_hdr->ar_op == htons(arp_op_reply))
+	{
+		/*# When servicing an arp reply that gives us an IP->MAC mapping
+		req = arpcache_insert(ip, mac)
+
+		if req:
+			send all packets on the req->packets linked list
+			arpreq_destroy(req)*/
+		struct sr_arpreq* curr_req = sr_arpcache_insert(&sr->cache, a_hdr->ar_sha, a_hdr->ar_sip);
+		if(curr_req)
+		{
+			struct sr_packet* packets_to_send = curr_req->packets;
+
+			/*Decrement the TTL by 1, and recompute the packet checksum over the modified header.*/
+			printf("---->> ARP Reply send outstanding packet<----\n");
+			print_hdrs(packets_to_send->buf, packets_to_send->len);
+			/*Send packet*/
+			/*sr_send_packet(sr, curr_req->packets, curr_req->packets->len, iface->name);*/
+		}
+	}
+	else
+	{
+		printf("---->> ARP Packet that is not reply or request<----\n");
+		return;
+	}
 
   }
   else
@@ -225,6 +250,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, ip_hdr->ip_dst);
 		if(entry)
 		{
+			printf("---->> Found mac add in cache, forward packet<----\n");
 			free(entry);
 		}
 		else
