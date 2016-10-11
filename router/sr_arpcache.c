@@ -48,7 +48,9 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         	while(curr_if != NULL)
         	{
         		print_addr_ip_int(curr_if->ip);
+    			printf("---->> Req<----\n");
         		print_addr_ip_int(req->ip);
+        		printf("-----------<----\n");
 
         		if (req->ip == curr_if->ip)
         		{
