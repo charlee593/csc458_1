@@ -45,21 +45,87 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         {
         	printf("---->> Send ARP request<----\n");
         	/*Find match interface in routing table */
-        	sr_print_routing_table(sr);
-
         	struct sr_rt* curr_routing_entry = sr->routing_table;
         	while(curr_routing_entry != NULL)
         	{
         		if (curr_routing_entry->dest.s_addr == req->ip)
         		{
         			printf("---->> Match with %s<----\n", curr_routing_entry->interface);
+        			 struct sr_if* iface = sr_get_interface(sr, curr_routing_entry->interface);
+
+        			/*Construct an ARP request and send it back*/
+					struct sr_ethernet_hdr* request_packet_ethernet_header = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
+					struct sr_arp_hdr* request_packet_arp_header = ((struct sr_arp_hdr*)malloc(sizeof(struct sr_arp_hdr)));
+
+					/*Ethernet header - Destination Address Broadcast*/
+					int i;
+					for (i = 0; i < ETHER_ADDR_LEN; i++)
+					{
+						request_packet_ethernet_header->ether_dhost[i] = 0xFF;
+					}
+
+					/*Ethernet header - Source Address*/
+					for (i = 0; i < ETHER_ADDR_LEN; i++)
+					{
+						request_packet_ethernet_header->ether_shost[i] = ((uint8_t)iface->addr[i]);
+					}
+
+					/*Ethernet header - Type*/
+					request_packet_ethernet_header->ether_type = htons(ethertype_arp);
+
+					/*ARP header - Hardware type*/
+					request_packet_arp_header->ar_hrd = htons(arp_hrd_ethernet);
+
+					/*ARP header - Protocol type*/
+					request_packet_arp_header->ar_pro = htons(ethertype_ip);
+
+					/*ARP header - Hardware address length*/
+					request_packet_arp_header->ar_hln = ETHER_ADDR_LEN;
+
+					/*ARP header - Protocol address length*/
+					request_packet_arp_header->ar_pln = 4;
+
+					/*ARP header - Opcode*/
+					request_packet_arp_header->ar_op = htons(arp_op_request);
+
+					/*ARP header - Source hardware address*/
+					for (i = 0; i < ETHER_ADDR_LEN; i++)
+					{
+						request_packet_arp_header->ar_sha[i] = iface->addr[i];
+					}
+
+					/*ARP header - Source protocol address*/
+					request_packet_arp_header->ar_sip = iface->ip;
+
+					/*ARP header - Destination hardware address*/
+					for (i = 0; i < ETHER_ADDR_LEN; i++)
+					{
+						request_packet_arp_header->ar_tha[i] = 0xFF;
+					}
+
+					/*ARP header - Destination protocol address*/
+					request_packet_arp_header->ar_tip = req->ip;
+
+					/*Create packet*/
+					uint8_t* request_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr)));
+					memcpy(request_packet, request_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
+					memcpy(request_packet + sizeof(struct sr_ethernet_hdr), request_packet_arp_header, sizeof(struct sr_arp_hdr));
+
+					print_hdrs(request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+
+					/*Send packet*/
+					sr_send_packet(sr, request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), iface->name);
+
+					free(request_packet_ethernet_header);
+					free(request_packet_arp_header);
+					free(request_packet);
+
+                	time(&now);
+                    req->sent = now;
+                    req->times_sent++;
         		}
         		curr_routing_entry = curr_routing_entry->next;
         	}
-
-        	time(&now);
-            req->sent = now;
-            req->times_sent++;
         }
 
     }
