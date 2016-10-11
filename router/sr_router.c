@@ -178,7 +178,7 @@ void sr_handlepacket(struct sr_instance* sr,
 			printf("---->> ARP Reply send outstanding packet<----\n");
 			while(curr_packets_to_send != NULL)
 			{
-				struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send;
+				struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send->buf;
 
 				/*Ethernet header - Destination Address*/
 				int i;
@@ -193,7 +193,7 @@ void sr_handlepacket(struct sr_instance* sr,
 					e_hdr->ether_shost[i] = ((uint8_t)iface->addr[i]);
 				}
 
-				struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(curr_packets_to_send + sizeof(struct sr_ethernet_hdr));
+				struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(curr_packets_to_send->buf + sizeof(struct sr_ethernet_hdr));
 
 				/*Decrement the TTL by 1, and recompute the packet checksum over the modified header.*/
 				ip_hdr->ip_ttl--;
