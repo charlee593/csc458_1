@@ -11,6 +11,7 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 #include "sr_utils.h"
+#include "sr_rt.h"
 
 /*   The handle_arpreq() function is a function you should write, and it should
    handle sending ARP requests if necessary:
@@ -43,26 +44,9 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         else
         {
         	printf("---->> Send ARP request<----\n");
-        	/*Check if it is for me*/
-        	struct sr_if* curr_if = sr->if_list;
-        	while(curr_if != NULL)
-        	{
-        		print_addr_ip_int(curr_if->ip);
-    			printf("---->> Req<----\n");
-        		print_addr_ip_int(req->ip);
-        		printf("-----------<----\n");
+        	/*Find match interface in routing table */
+        	sr_print_routing_table(sr);
 
-        		if (req->ip == curr_if->ip)
-        		{
-        			printf("---->> Send ARP request ip Addres<----\n");
-        			print_addr_ip_int(curr_if->ip);
-
-                	time(&now);
-                	req->sent = now;
-                	req->times_sent++;
-        		}
-        		curr_if = curr_if->next;
-        	}
 
         }
 
