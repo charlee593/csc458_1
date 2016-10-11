@@ -10,6 +10,7 @@
 #include "sr_router.h"
 #include "sr_if.h"
 #include "sr_protocol.h"
+#include "sr_utils.h"
 
 /*   The handle_arpreq() function is a function you should write, and it should
    handle sending ARP requests if necessary:
@@ -37,7 +38,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 /*            send icmp host unreachable to source addr of all pkts waiting
               on this request*/
         	printf("---->> Send ICMP host unreachable<----\n");
-        	sr_arpreq_destroy(sr->cache, req);
+        	sr_arpreq_destroy(&sr->cache, req);
         }
         else
         {
