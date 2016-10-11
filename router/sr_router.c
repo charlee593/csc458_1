@@ -166,27 +166,6 @@ void sr_handlepacket(struct sr_instance* sr,
   }
   else
   {
-	printf("---->> Packet type IP<----\n");
-	struct sr_ip_hdr* ip_hdr;
-	ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
-	print_hdr_ip((uint8_t*)ip_hdr);
-
-	/*Check packet checksum*/
-	uint16_t ip_checksum = ip_hdr->ip_sum;
-	ip_hdr->ip_sum = 0;
-	if(ip_checksum != cksum(ip_hdr, sizeof(struct sr_ip_hdr)))
-	{
-		printf("---->> Checksum not good %u<----\n",cksum(ip_hdr, sizeof(struct sr_ip_hdr)));
-
-	}
-	else
-	{
-		printf("---->>Checksum good<----\n");
-
-	}
-
-	/*Check TTL*/
-
 	/* If ICMP
 	*
 	* Echo reply (type 0) It's for me
@@ -196,11 +175,47 @@ void sr_handlepacket(struct sr_instance* sr,
 	* Time exceeded (type 11, code 0) It's for me && Not for me
 	*
 	* */
+	printf("---->> Packet type IP<----\n");
+	struct sr_ip_hdr* ip_hdr;
+	ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+	print_hdr_ip((uint8_t*)ip_hdr);
 
+	/*Check packet checksum*/
+	uint16_t ip_checksum_temp = ip_hdr->ip_sum;
+	ip_hdr->ip_sum = 0;
+	if(ip_checksum_temp != cksum(ip_hdr, sizeof(struct sr_ip_hdr)))
+	{
+		printf("---->> Checksum not good %u<----\n",cksum(ip_hdr, sizeof(struct sr_ip_hdr)));
+		return;
+	}
+	ip_hdr->ip_sum = ip_checksum_temp;
 
+	/*Check if it is for me*/
+	struct sr_if* router_if = sr->if_list;
+	while(router_if != NULL)
+	{
+		if (ip_hdr->ip_dst == router_if->ip)
+		{
+			/*Check TTL*/
+			if(ip_hdr->ip_ttl <=1)
+			{
+				printf("---->> Send ICMP (type 11, code 0)<----\n");
+			}
+			printf("---->> Its for me<----\n");
+		}
 
+		router_if = router_if->next;
+	}
 
+	/*It is for not me*/
+	if(router_if == NULL)
+	{
+		if(ip_hdr->ip_ttl <=1)
+		{
+			printf("---->> Send ICMP (type 11, code 0)<----\n");
+		}
+		printf("---->> Its for not me<----\n");
+	}
   }
 
 }/* end sr_ForwardPacket */
-
