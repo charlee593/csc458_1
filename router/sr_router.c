@@ -233,7 +233,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		return;
 	}
 
-	/*Check if it is for me - check all interfaces in router*/
+	/*Check if it is for me - find interfaces name*/
 	struct sr_if* curr_if = sr->if_list;
 	while(curr_if != NULL)
 	{
@@ -302,6 +302,11 @@ void sr_handlepacket(struct sr_instance* sr,
 				memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
 				/*Send packet*/
 				sr_send_packet(sr, packet, len, match_iface->name);
+			}
+			else
+			{
+				/* Send Destination net unreachable*/
+				send_icmp(sr, packet, iface->name, 3, 0);
 			}
 			free(entry);
 		}
