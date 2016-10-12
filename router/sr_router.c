@@ -353,7 +353,7 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
 		struct sr_icmp_hdr* icmp_packet_icmp_header = ((struct sr_icmp_hdr*)malloc(sizeof(struct sr_icmp_hdr)));
 
 		/*ip header - total length*/
-		icmp_packet_ip_header->ip_len = htons(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+		icmp_packet_ip_header->ip_len = htons(64);
 		/*ip header - identification*/
 		icmp_packet_ip_header->ip_id = 0;
 		/*ip header - fragment offset field */
