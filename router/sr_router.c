@@ -377,7 +377,7 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
 		/*icmp header -  checksum*/
 		icmp_packet_icmp_header->icmp_sum = 0;
 		/*icmp header -  data*/
-		 memcpy(icmp_packet_icmp_header->data, icmp_packet_ip_header, ICMP_DATA_SIZE);
+		 memcpy(icmp_packet_icmp_header->data, received_packet_ip_hdr, ICMP_DATA_SIZE);
 		/*icmp header -  checksum*/
 		icmp_packet_icmp_header->icmp_sum = cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr));
 
