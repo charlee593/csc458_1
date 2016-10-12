@@ -229,6 +229,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	if(ip_hdr->ip_ttl <=1)
 	{
 		printf("---->> Send ICMP (type 11, code 0)<----\n");
+		send_icmp(sr, packet, iface->name, 11, 0);
 	}
 
 	/*Check if it is for me - check all interfaces in router*/
@@ -315,7 +316,81 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t ip)
 	As mentioned above, the only incoming ICMP message destined towards the router’s IPs that you have to explicitly process are ICMP echo requests.
 	You may want to create additional structs for ICMP messages for convenience, but make sure to use the packed attribute so that the compiler doesn’t try to align the fields in the struct to word boundaries:
 */
-void send_icmp(struct sr_instance *sr, char* from_interface, uint32_t target_ip, int type, int code)
+void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_interface, uint8_t type, uint8_t code)
 {
+	struct sr_ethernet_hdr* received_packet_e_hdr = (struct sr_ethernet_hdr*)received_packet;
+	struct sr_ip_hdr* received_packet_ip_hdr = (struct sr_ip_hdr*)(received_packet + sizeof(struct sr_ethernet_hdr));
+
+	struct sr_ethernet_hdr* icmp_packet_ethernet_header = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
+	struct sr_ip_hdr* icmp_packet_ip_header = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
+	struct sr_if* iface = sr_get_interface(sr, from_interface);
+
+	/*Ethernet destination address*/
+	memcpy(icmp_packet_ethernet_header->ether_dhost, received_packet_e_hdr->ether_shost, ETHER_ADDR_LEN);
+	/*Ethernet source Address*/
+	memcpy(icmp_packet_ethernet_header->ether_shost, iface->addr, ETHER_ADDR_LEN);
+	/*Ethernet header - Type*/
+	icmp_packet_ethernet_header->ether_type = htons(ethertype_arp);
+
+	/*ip header - version*/
+	icmp_packet_ip_header->ip_hl = 5;
+	/*ip header - ihl*/
+	icmp_packet_ip_header->ip_v = 4;
+	/*ip header - Differentiated services*/
+	icmp_packet_ip_header->ip_tos = htonl(0);
+
+
+	if(type == 3)
+	{
+		struct sr_icmp_t3_hdr_t* icmp_packet_icmp_header = ((struct sr_icmp_t3_hdr_t*)malloc(sizeof(struct sr_icmp_t3_hdr)));
+	}
+	else
+	{
+		/*Time exceeded (type 11, code 0)*/
+		struct sr_icmp_hdr* icmp_packet_icmp_header = ((struct sr_icmp_hdr*)malloc(sizeof(struct sr_icmp_hdr)));
+
+		/*ip header - total length*/
+		icmp_packet_ip_header->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+		/*ip header - identification*/
+		icmp_packet_ip_header->ip_id = 0;
+		/*ip header - fragment offset field */
+		icmp_packet_ip_header->ip_off = 0;
+		/*ip header -  time to live*/
+		icmp_packet_ip_header->ip_ttl = 100;
+		/*ip header -  protocol*/
+		icmp_packet_ip_header->ip_p = 1;
+		/*ip header -  checksum*/
+		icmp_packet_ip_header->ip_sum = 0;
+		/*ip header -  source and dest address */
+		icmp_packet_ip_header->ip_src = iface->ip;
+		icmp_packet_ip_header->ip_dst = received_packet_ip_hdr->ip_src;
+		/*ip header -  checksum*/
+		icmp_packet_ip_header->ip_sum = cksum(icmp_packet_ip_header, sizeof(struct sr_ip_hdr));
+
+		/*icmp header -  type*/
+		icmp_packet_icmp_header->icmp_type = type;
+		/*icmp header -  code*/
+		icmp_packet_icmp_header->icmp_code = code;
+		/*icmp header -  checksum*/
+		icmp_packet_icmp_header->icmp_sum = 0;
+		icmp_packet_icmp_header->icmp_sum = cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_hdr));
+
+		/*Create packet*/
+		uint8_t* icmp_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr)));
+		memcpy(icmp_packet, icmp_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
+		memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr), icmp_packet_ip_header, sizeof(struct sr_ip_hdr));
+		memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmp_hdr), icmp_packet_icmp_header, sizeof(struct sr_icmp_hdr));
+
+		/*Send packet*/
+		sr_send_packet(sr, icmp_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr), iface->name);
+
+		free(icmp_packet_ethernet_header);
+		free(icmp_packet_ip_header);
+		free(icmp_packet_icmp_header);
+		free(icmp_packet);
+	}
+
+
+
 
 }/* end send_icmp */
