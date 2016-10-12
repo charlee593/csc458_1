@@ -230,6 +230,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	{
 		printf("---->> Send ICMP (type 11, code 0)<------------------------------\n");
 		send_icmp(sr, packet, iface->name, 11, 0);
+		return;
 	}
 
 	/*Check if it is for me - check all interfaces in router*/
