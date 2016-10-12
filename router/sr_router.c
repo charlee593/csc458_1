@@ -214,7 +214,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	* */
 	printf("---->> Packet type IP<----\n");
 	struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
-	print_hdr_ip((uint8_t*)ip_hdr);
+/*	print_hdr_ip((uint8_t*)ip_hdr);*/
 
 	/*Check packet checksum*/
 	uint16_t ip_checksum_temp = ip_hdr->ip_sum;
