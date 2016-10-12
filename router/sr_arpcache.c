@@ -105,7 +105,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 				memcpy(request_packet, request_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
 				memcpy(request_packet + sizeof(struct sr_ethernet_hdr), request_packet_arp_header, sizeof(struct sr_arp_hdr));
 
-				print_hdrs(request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+/*				print_hdrs(request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));*/
 
 				/*Send packet*/
 				sr_send_packet(sr, request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), match_iface->name);

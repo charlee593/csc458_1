@@ -228,7 +228,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 	if(ip_hdr->ip_ttl <=1)
 	{
-		printf("---->> Send ICMP (type 11, code 0)<----\n");
+		printf("---->> Send ICMP (type 11, code 0)<------------------------------\n");
 		send_icmp(sr, packet, iface->name, 11, 0);
 	}
 
