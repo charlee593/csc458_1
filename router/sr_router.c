@@ -333,7 +333,7 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
 	/*Ethernet source Address*/
 	memcpy(icmp_packet_ethernet_header->ether_shost, iface->addr, ETHER_ADDR_LEN);
 	/*Ethernet header - Type*/
-	icmp_packet_ethernet_header->ether_type = htons(ethertype_arp);
+	icmp_packet_ethernet_header->ether_type = htons(ethertype_ip);
 
 	/*ip header - version*/
 	icmp_packet_ip_header->ip_hl = 5;
