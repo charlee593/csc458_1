@@ -239,6 +239,8 @@ void sr_handlepacket(struct sr_instance* sr,
 		if (ip_hdr->ip_dst == curr_if->ip)
 		{
 			printf("---->> Its for me<----\n");
+			print_hdr_ip((uint8_t*)ip_hdr);
+			return;
 		}
 		curr_if = curr_if->next;
 	}
