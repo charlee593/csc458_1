@@ -371,9 +371,9 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
 		icmp_packet_ip_header->ip_sum = cksum(icmp_packet_ip_header, sizeof(struct sr_ip_hdr));
 
 		/*icmp header -  type*/
-		icmp_packet_icmp_header->icmp_type = type;
+		icmp_packet_icmp_header->icmp_type = 11;
 		/*icmp header -  code*/
-		icmp_packet_icmp_header->icmp_code = code;
+		icmp_packet_icmp_header->icmp_code = 0;
 		/*icmp header -  checksum*/
 		icmp_packet_icmp_header->icmp_sum = 0;
 		icmp_packet_icmp_header->icmp_sum = cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_hdr));
