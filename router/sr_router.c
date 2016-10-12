@@ -350,10 +350,10 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
 	else
 	{
 		/*Time exceeded (type 11, code 0)*/
-		struct sr_icmp_hdr* icmp_packet_icmp_header = ((struct sr_icmp_hdr*)malloc(sizeof(struct sr_icmp_hdr)));
+		struct sr_icmp_t3_hdr* icmp_packet_icmp_header = ((struct sr_icmp_t3_hdr*)malloc(sizeof(struct sr_icmp_t3_hdr)));
 
 		/*ip header - total length*/
-		icmp_packet_ip_header->ip_len = htons(64);
+		icmp_packet_ip_header->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
 		/*ip header - identification*/
 		icmp_packet_ip_header->ip_id = 0;
 		/*ip header - fragment offset field */
@@ -376,16 +376,16 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
 		icmp_packet_icmp_header->icmp_code = code;
 		/*icmp header -  checksum*/
 		icmp_packet_icmp_header->icmp_sum = 0;
-		icmp_packet_icmp_header->icmp_sum = cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_hdr));
+		icmp_packet_icmp_header->icmp_sum = cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr));
 
 		/*Create packet*/
-		uint8_t* icmp_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr)));
+		uint8_t* icmp_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr)));
 		memcpy(icmp_packet, icmp_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
 		memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr), icmp_packet_ip_header, sizeof(struct sr_ip_hdr));
-		memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp_packet_icmp_header, sizeof(struct sr_icmp_hdr));
+		memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr));
 
 		/*Send packet*/
-		sr_send_packet(sr, icmp_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr), iface->name);
+		sr_send_packet(sr, icmp_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr), iface->name);
 
 		free(icmp_packet_ethernet_header);
 		free(icmp_packet_ip_header);
