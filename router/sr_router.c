@@ -226,17 +226,17 @@ void sr_handlepacket(struct sr_instance* sr,
 	}
 	ip_hdr->ip_sum = ip_checksum_temp;
 
-	/*Check if it is for me*/
+	if(ip_hdr->ip_ttl <=1)
+	{
+		printf("---->> Send ICMP (type 11, code 0)<----\n");
+	}
+
+	/*Check if it is for me - check all interfaces in router*/
 	struct sr_if* curr_if = sr->if_list;
 	while(curr_if != NULL)
 	{
 		if (ip_hdr->ip_dst == curr_if->ip)
 		{
-			/*Check TTL*/
-			if(ip_hdr->ip_ttl <=1)
-			{
-				printf("---->> Send ICMP (type 11, code 0)<----\n");
-			}
 			printf("---->> Its for me<----\n");
 		}
 		curr_if = curr_if->next;
@@ -245,10 +245,6 @@ void sr_handlepacket(struct sr_instance* sr,
 	/*It is for not me*/
 	if(curr_if == NULL)
 	{
-		if(ip_hdr->ip_ttl <=1)
-		{
-			printf("---->> Send ICMP (type 11, code 0)<----\n");
-		}
 		printf("---->> Its for not me<----\n");
 
 		/*Decrement the TTL by 1, and recompute the packet checksum over the modified header.*/
@@ -287,7 +283,8 @@ void sr_handlepacket(struct sr_instance* sr,
 /*
   Check routing table, perform LPM
 */
-struct sr_if* lpm(struct sr_instance *sr, uint32_t ip) {
+struct sr_if* lpm(struct sr_instance *sr, uint32_t ip)
+{
 	/*Find match interface in routing table LPM*/
 	struct sr_rt* curr_routing_entry = sr->routing_table;
 	while(curr_routing_entry != NULL)
@@ -300,3 +297,25 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t ip) {
 	}
 	return NULL;
 }/* end lpm */
+
+/*
+	Generate the following ICMP messages (including the ICMP header checksum) in response to the sending host under the following conditions:
+
+	Echo reply (type 0)
+	Sent in response to an echo request (ping) to one of the router’s interfaces. (This is only for echo requests to any of the router’s IPs. An echo request sent elsewhere should be forwarded to the next hop address as usual.)
+	Destination net unreachable (type 3, code 0)
+	** Sent if there is a non-existent route to the destination IP (no matching entry in routing table when forwarding an IP packet).
+	Destination host unreachable (type 3, code 1)
+	** Sent if five ARP requests were sent to the next-hop IP without a response.
+	Port unreachable (type 3, code 3)
+	** Sent if an IP packet containing a UDP or TCP payload is sent to one of the router’s interfaces. This is needed for traceroute to work.
+	Time exceeded (type 11, code 0)
+	** Sent if an IP packet is discarded during processing because the TTL field is 0. This is also needed for traceroute to work.
+	The source address of an ICMP message can be the source address of any of the incoming interfaces, as specified in RFC 792.
+	As mentioned above, the only incoming ICMP message destined towards the router’s IPs that you have to explicitly process are ICMP echo requests.
+	You may want to create additional structs for ICMP messages for convenience, but make sure to use the packed attribute so that the compiler doesn’t try to align the fields in the struct to word boundaries:
+*/
+void send_icmp(struct sr_instance *sr, char* from_interface, uint32_t target_ip, int type, int code)
+{
+
+}/* end send_icmp */

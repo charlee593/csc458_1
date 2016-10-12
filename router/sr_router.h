@@ -68,6 +68,7 @@ int sr_read_from_server(struct sr_instance* );
 void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 struct sr_if* lpm(struct sr_instance *sr, uint32_t ip);
+void send_icmp(struct sr_instance *sr, char* from_interface, uint32_t target_ip, int type, int code);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
