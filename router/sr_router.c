@@ -264,7 +264,7 @@ void sr_handlepacket(struct sr_instance* sr,
 				return;
 			}
 
-			/* Received IP packet*/
+			/* Received ICMP packet UDP or TCP*/
 			if(ip_hdr->ip_p == 6 || ip_hdr->ip_p == 17)
 			{
 				/* Send ICMP port unreachable*/

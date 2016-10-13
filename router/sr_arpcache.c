@@ -39,6 +39,25 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         	/* send icmp host unreachable to source addr of all pkts waiting
               on this request*/
         	printf("---->> Send ICMP host unreachable<----\n");
+        	/*Find interfaces name*/
+    		struct sr_if* curr_if = sr->if_list;
+    		while(curr_if != NULL)
+    		{
+    			if (req->ip == curr_if->ip)
+    			{
+    				/* All packets in req*/
+    				struct sr_packet* curr_packets_to_send = req->packets;
+    				while(curr_packets_to_send != NULL)
+    				{
+    					send_icmp(sr, curr_packets_to_send->buf, curr_if->name, 3, 1);
+
+    					curr_packets_to_send = curr_packets_to_send->next;
+    				}
+
+    			}
+    			curr_if = curr_if->next;
+    		}
+
         	sr_arpreq_destroy(&sr->cache, req);
         }
         else
@@ -105,7 +124,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 				memcpy(request_packet, request_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
 				memcpy(request_packet + sizeof(struct sr_ethernet_hdr), request_packet_arp_header, sizeof(struct sr_arp_hdr));
 
-/*				print_hdrs(request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));*/
+				print_hdrs(request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
 
 				/*Send packet*/
 				sr_send_packet(sr, request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), match_iface->name);
