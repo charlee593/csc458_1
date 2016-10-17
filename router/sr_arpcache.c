@@ -38,7 +38,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         {
             /* send icmp host unreachable to source addr of all pkts waiting
                on this request */
-            printf("---->> Send ICMP host unreachable<----\n");
+            printf("---->> Send ICMP host unreachable <----\n");
             /* Find interfaces name */
             struct sr_if* curr_if = sr->if_list;
             while(curr_if != NULL)
@@ -46,13 +46,14 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
                 if (req->ip == curr_if->ip)
                 {
                     /* All packets in req */
-                    struct sr_packet* curr_packets_to_send = req->packets;
-                    while(curr_packets_to_send != NULL)
+                    struct sr_packet* curr_packet_to_send = req->packets;
+                    while(curr_packet_to_send != NULL)
                     {
-                        send_icmp(sr, curr_packets_to_send->buf, curr_if->name, 3, 1);
+                        send_icmp(sr, curr_packet_to_send->buf, curr_if->name, 3, 1);
 
-                        curr_packets_to_send = curr_packets_to_send->next;
+                        curr_packet_to_send = curr_packet_to_send->next;
                     }
+                    /*break;*/
                 }
                 curr_if = curr_if->next;
             }
@@ -65,7 +66,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
             struct sr_if* match_iface = lpm(sr, req->ip);
             if(match_iface)
             {
-                /* Construct an ARP request and send it back */
+                /* Construct an ARP request and send it */
                 struct sr_ethernet_hdr* request_packet_ethernet_header = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
                 struct sr_arp_hdr* request_packet_arp_header = ((struct sr_arp_hdr*)malloc(sizeof(struct sr_arp_hdr)));
 
@@ -128,13 +129,17 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
                 /* Send packet */
                 sr_send_packet(sr, request_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), match_iface->name);
 
-                free(request_packet_ethernet_header);
-                free(request_packet_arp_header);
-                free(request_packet);
-
                 time(&now);
                 req->sent = now;
                 req->times_sent++;
+
+                free(request_packet_ethernet_header);
+                free(request_packet_arp_header);
+                free(request_packet);
+            }
+            else
+            {
+                printf("---->> Performing LPM did not return any result. Not resending ARP request <----\n");
             }
         }
     }
@@ -146,9 +151,10 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
   See the comments in the header file for an idea of what it should look like.
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
-    /* Fill this in */
     struct sr_arpreq* curr_req = sr->cache.requests;
-    while(curr_req !=NULL)  /*loops the linked list till all reqs are complete*/
+
+    /* loops the linked list till all requests are complete */
+    while(curr_req != NULL)
     {
         handle_arpreq(curr_req, sr);
         curr_req=curr_req->next;
