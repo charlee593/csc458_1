@@ -67,6 +67,7 @@ int sr_read_from_server(struct sr_instance* );
 /* -- sr_router.c -- */
 void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
+void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, struct sr_arp_hdr* a_hdr, struct sr_if* iface);
 struct sr_if* lpm(struct sr_instance *sr, uint32_t ip);
 void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_interface, uint8_t type, uint8_t code);
 

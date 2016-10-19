@@ -79,13 +79,8 @@ void sr_handlepacket(struct sr_instance* sr,
 
     printf("*** -> Received packet of length %d \n",len);
 
-    /* fill in code here */
-
-
-    struct sr_ethernet_hdr* e_hdr;
+    struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)packet;
     struct sr_if* iface = sr_get_interface(sr, interface);
-
-    e_hdr = (struct sr_ethernet_hdr*)packet;
 
     printf("---->> Interface %s<----\n", interface);
 
@@ -93,82 +88,18 @@ void sr_handlepacket(struct sr_instance* sr,
     if (e_hdr->ether_type == htons(ethertype_arp))
     {
         /* Get the ARP header */
-        struct sr_arp_hdr* a_hdr;
-        a_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+        struct sr_arp_hdr* arp_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
 
         printf("---->> Packet type ARP %u, %u<----\n",(unsigned)htons(e_hdr->ether_type), (unsigned)e_hdr->ether_type);
-        printf("---->> An ARP packet protocol type %u, %u <----\n", a_hdr->ar_pro, htons(a_hdr->ar_pro));
+        printf("---->> An ARP packet protocol type %u, %u <----\n", arp_hdr->ar_pro, htons(arp_hdr->ar_pro));
 
         /* ARP request to me */
-        if(a_hdr->ar_op == htons(arp_op_request))
+        if(arp_hdr->ar_op == htons(arp_op_request))
         {
-            /* Construct an ARP reply and send it back */
-            struct sr_ethernet_hdr* reply_packet_ethernet_header = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
-            struct sr_arp_hdr* reply_packet_arp_header = ((struct sr_arp_hdr*)malloc(sizeof(struct sr_arp_hdr)));
-
-            /* Ethernet header - Destination Address */
-            int i;
-            for (i = 0; i < ETHER_ADDR_LEN; i++)
-            {
-                reply_packet_ethernet_header->ether_dhost[i] = e_hdr->ether_shost[i];
-            }
-
-            /* Ethernet header - Source Address */
-            for (i = 0; i < ETHER_ADDR_LEN; i++)
-            {
-                reply_packet_ethernet_header->ether_shost[i] = ((uint8_t)iface->addr[i]);
-            }
-
-            /* Ethernet header - Type */
-            reply_packet_ethernet_header->ether_type = e_hdr->ether_type;
-
-            /* ARP header - Hardware type */
-            reply_packet_arp_header->ar_hrd = a_hdr->ar_hrd;
-
-            /* ARP header - Protocol type */
-            reply_packet_arp_header->ar_pro = a_hdr->ar_pro;
-
-            /* ARP header - Hardware address length */
-            reply_packet_arp_header->ar_hln = a_hdr->ar_hln;
-
-            /* ARP header - Protocol address length */
-            reply_packet_arp_header->ar_pln = a_hdr->ar_pln;
-
-            /* ARP header - Opcode */
-            reply_packet_arp_header->ar_op = htons(arp_op_reply);
-
-            /* ARP header - Source hardware address */
-            for (i = 0; i < ETHER_ADDR_LEN; i++)
-            {
-                reply_packet_arp_header->ar_sha[i] = iface->addr[i];
-            }
-
-            /* ARP header - Source protocol address */
-            reply_packet_arp_header->ar_sip = a_hdr->ar_tip;
-
-            /* ARP header - Destination hardware address */
-            for (i = 0; i < ETHER_ADDR_LEN; i++)
-            {
-                reply_packet_arp_header->ar_tha[i] = a_hdr->ar_sha[i];
-            }
-
-            /* ARP header - Destination protocol address */
-            reply_packet_arp_header->ar_tip = a_hdr->ar_sip;
-
-            /* Create packet */
-            uint8_t* reply_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr)));
-            memcpy(reply_packet, reply_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
-            memcpy(reply_packet + sizeof(struct sr_ethernet_hdr), reply_packet_arp_header, sizeof(struct sr_arp_hdr));
-
-            /* Send packet */
-            sr_send_packet(sr, reply_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), iface->name);
-
-            free(reply_packet_ethernet_header);
-            free(reply_packet_arp_header);
-            free(reply_packet);
+            reply_to_arp_req(sr, e_hdr, arp_hdr, iface);
         }
         /* ARP reply */
-        else if(a_hdr->ar_op == htons(arp_op_reply))
+        else if(arp_hdr->ar_op == htons(arp_op_reply))
         {
             /* When servicing an arp reply that gives us an IP->MAC mapping
                req = arpcache_insert(ip, mac)
@@ -176,7 +107,7 @@ void sr_handlepacket(struct sr_instance* sr,
             if req:
             send all packets on the req->packets linked list
             arpreq_destroy(req) */
-            struct sr_arpreq* req = sr_arpcache_insert(&sr->cache, a_hdr->ar_sha, a_hdr->ar_sip);
+            struct sr_arpreq* req = sr_arpcache_insert(&sr->cache, arp_hdr->ar_sha, arp_hdr->ar_sip);
             if(req)
             {
                 struct sr_packet* curr_packets_to_send = req->packets;
@@ -187,7 +118,7 @@ void sr_handlepacket(struct sr_instance* sr,
                     struct sr_ethernet_hdr* curr_e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send->buf;
 
                     /* Ethernet header - Destination Address */
-                    memcpy(curr_e_hdr->ether_dhost, a_hdr->ar_sha, ETHER_ADDR_LEN);
+                    memcpy(curr_e_hdr->ether_dhost, arp_hdr->ar_sha, ETHER_ADDR_LEN);
 
                     /* Ethernet header - Source Address */
                     memcpy(curr_e_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
@@ -329,7 +260,68 @@ void sr_handlepacket(struct sr_instance* sr,
     {
         printf("---->> Received Ethernet frame that contains neither IP packet nor ARP packet <----\n");
     }
-}/* end sr_handlepacket */
+} /* end sr_handlepacket */
+
+void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, struct sr_arp_hdr* arp_hdr, struct sr_if* iface)
+{
+    /* Construct an ARP reply and send it back */
+    struct sr_ethernet_hdr* reply_packet_eth_hdr = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
+    struct sr_arp_hdr* reply_packet_arp_hdr = ((struct sr_arp_hdr*)malloc(sizeof(struct sr_arp_hdr)));
+
+    /* Ethernet header - Destination Address */
+    int i;
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_packet_eth_hdr->ether_dhost[i] = e_hdr->ether_shost[i];
+
+    /* Ethernet header - Source Address */
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_packet_eth_hdr->ether_shost[i] = (uint8_t)iface->addr[i];
+
+    /* Ethernet header - Type */
+    reply_packet_eth_hdr->ether_type = htons(ethertype_arp);
+
+
+    /* ARP header - Hardware type */
+    reply_packet_arp_hdr->ar_hrd = arp_hdr->ar_hrd;
+
+    /* ARP header - Protocol type */
+    reply_packet_arp_hdr->ar_pro = arp_hdr->ar_pro;
+
+    /* ARP header - Hardware address length */
+    reply_packet_arp_hdr->ar_hln = arp_hdr->ar_hln;
+
+    /* ARP header - Protocol address length */
+    reply_packet_arp_hdr->ar_pln = arp_hdr->ar_pln;
+
+    /* ARP header - Opcode */
+    reply_packet_arp_hdr->ar_op = htons(arp_op_reply);
+
+    /* ARP header - Source hardware address */
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_packet_arp_hdr->ar_sha[i] = iface->addr[i];
+
+    /* ARP header - Source protocol address */
+    reply_packet_arp_hdr->ar_sip = iface->ip;                                                       /*arp_hdr->ar_tip   ???  */
+
+    /* ARP header - Destination hardware address */
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_packet_arp_hdr->ar_tha[i] = arp_hdr->ar_sha[i];
+
+    /* ARP header - Destination protocol address */
+    reply_packet_arp_hdr->ar_tip = arp_hdr->ar_sip;
+
+    /* Create packet */
+    uint8_t* reply_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr)));
+    memcpy(reply_packet, reply_packet_eth_hdr, sizeof(struct sr_ethernet_hdr));
+    memcpy(reply_packet + sizeof(struct sr_ethernet_hdr), reply_packet_arp_hdr, sizeof(struct sr_arp_hdr));
+
+    /* Send packet */
+    sr_send_packet(sr, reply_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), iface->name);
+
+    free(reply_packet_eth_hdr);
+    free(reply_packet_arp_hdr);
+    free(reply_packet);
+} /* end reply_to_arp_req */
 
 /*
   Check routing table, perform LPM
