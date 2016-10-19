@@ -151,24 +151,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
                 handle_ip_packet_for_router(sr, packet, ip_hdr, iface);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                 return;
             }
             curr_if = curr_if->next;
@@ -179,48 +161,7 @@ void sr_handlepacket(struct sr_instance* sr,
         {
             printf("---->> It's not for me <----\n");
 
-            if(ip_hdr->ip_ttl <= 1)
-            {
-                printf("---->> Send ICMP (type 11, code 0) <------------------------------\n");
-                send_icmp(sr, packet, iface->name, 11, 0);
-                return;
-            }
-
-            /* Decrement the TTL by 1, and recompute the packet checksum over the modified header. */
-            ip_hdr->ip_ttl--;
-            ip_hdr->ip_sum = 0;
-            ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
-
-            /* Forward packet */
-            struct sr_if* match_iface = lpm(sr, ip_hdr->ip_dst);
-            if(!match_iface)
-            {
-                /* Send Destination net unreachable */
-                send_icmp(sr, packet, iface->name, 3, 0);
-                return;
-            }
-
-            struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, ip_hdr->ip_dst);
-            if(entry)
-            {
-                printf("---->> Found mac add in cache, forward packet<----\n");
-
-/*                 Forward packet
-
-                /* Swap ethernet address */
-                memcpy(e_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
-                /* Ethernet header - Source Address */
-                memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
-                /* Send packet */
-                sr_send_packet(sr, packet, len, match_iface->name);
-
-                free(entry);
-            }
-            else
-            {
-                struct sr_arpreq * req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, interface);
-                handle_arpreq(req, sr);
-            }
+            handle_ip_packet_to_forward(sr, packet, len, ip_hdr, iface);
         }
     }
     else
@@ -366,6 +307,54 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
     {
         /* Send ICMP port unreachable */
         send_icmp(sr, packet, iface->name, 3, 3);
+    }
+}
+
+void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
+{
+    if(ip_hdr->ip_ttl <= 1)
+    {
+        printf("---->> Send ICMP (type 11, code 0) <----\n");
+        send_icmp(sr, packet, iface->name, 11, 0);
+        return;
+    }
+
+    /* Decrement the TTL by 1, and recompute the packet checksum over the modified header. */
+    ip_hdr->ip_ttl--;
+    ip_hdr->ip_sum = 0;
+    ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
+
+    /* Forward packet */
+    struct sr_if* match_iface = lpm(sr, ip_hdr->ip_dst);
+    if(!match_iface)
+    {
+        /* Send Destination net unreachable */
+        send_icmp(sr, packet, iface->name, 3, 0);
+        return;
+    }
+
+    struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, ip_hdr->ip_dst);
+    if(entry)
+    {
+        printf("---->> Found mac add in cache, forward packet<----\n");
+
+/*                 Forward packet */
+
+        struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)packet;
+
+        /* Swap ethernet address */
+        memcpy(e_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
+        /* Ethernet header - Source Address */
+        memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
+        /* Send packet */
+        sr_send_packet(sr, packet, len, match_iface->name);
+
+        free(entry);
+    }
+    else
+    {
+        struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, iface->name);
+        handle_arpreq(req, sr);
     }
 }
 
