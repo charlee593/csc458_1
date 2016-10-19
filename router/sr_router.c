@@ -293,35 +293,35 @@ void sr_handlepacket(struct sr_instance* sr,
             ip_hdr->ip_sum = 0;
             ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
 
+            /* Forward packet */
+            struct sr_if* match_iface = lpm(sr, ip_hdr->ip_dst);
+            if(!match_iface)
+            {
+                /* Send Destination net unreachable */
+                send_icmp(sr, packet, iface->name, 3, 0);
+                return;
+            }
+
             struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, ip_hdr->ip_dst);
             if(entry)
             {
                 printf("---->> Found mac add in cache, forward packet<----\n");
 
-                /* Forward packet */
-                struct sr_if* match_iface = lpm(sr, ip_hdr->ip_dst);
-                if(match_iface)
-                {
-                    /* Swap ethernet address */
-                    memcpy(e_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
-                    /* Ethernet header - Source Address */
-                    memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
-                    /* Send packet */
-                    sr_send_packet(sr, packet, len, match_iface->name);
-                }
-                else
-                {
-                    /* Send Destination net unreachable */
-                    /* send_icmp(sr, packet, iface->name, 3, 0);*/
-                }
+/*                 Forward packet
+
+                /* Swap ethernet address */
+                memcpy(e_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
+                /* Ethernet header - Source Address */
+                memcpy(e_hdr->ether_shost, match_iface->addr, ETHER_ADDR_LEN);
+                /* Send packet */
+                sr_send_packet(sr, packet, len, match_iface->name);
+
                 free(entry);
             }
             else
             {
-                /*struct sr_arpreq * req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, interface);
-                handle_arpreq(req, sr);*/
-
-                send_icmp(sr, packet, iface->name, 3, 0);
+                struct sr_arpreq * req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, interface);
+                handle_arpreq(req, sr);
             }
         }
     }
