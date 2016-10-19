@@ -77,6 +77,13 @@ void sr_handlepacket(struct sr_instance* sr,
     assert(packet);
     assert(interface);
 
+    /* Check for minimum frame size */
+    if (len < sizeof(struct sr_ethernet_hdr))
+    {
+        printf("---->> Received ethernet frame that is too short. <----\n");
+        return;
+    }
+
     printf("*** -> Received packet of length %d \n",len);
 
     struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)packet;
@@ -101,42 +108,12 @@ void sr_handlepacket(struct sr_instance* sr,
         /* ARP reply */
         else if(arp_hdr->ar_op == htons(arp_op_reply))
         {
-            /* When servicing an arp reply that gives us an IP->MAC mapping
-               req = arpcache_insert(ip, mac)
-
-            if req:
-            send all packets on the req->packets linked list
-            arpreq_destroy(req) */
-            struct sr_arpreq* req = sr_arpcache_insert(&sr->cache, arp_hdr->ar_sha, arp_hdr->ar_sip);
-            if(req)
-            {
-                struct sr_packet* curr_packets_to_send = req->packets;
-
-                printf("---->> ARP Reply send outstanding packet <----\n");
-                while(curr_packets_to_send != NULL)
-                {
-                    struct sr_ethernet_hdr* curr_e_hdr = (struct sr_ethernet_hdr*)curr_packets_to_send->buf;
-
-                    /* Ethernet header - Destination Address */
-                    memcpy(curr_e_hdr->ether_dhost, arp_hdr->ar_sha, ETHER_ADDR_LEN);
-
-                    /* Ethernet header - Source Address */
-                    memcpy(curr_e_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
-
-                    /* Send packet */
-                    sr_send_packet(sr, curr_packets_to_send->buf, curr_packets_to_send->len, interface);
-
-                    curr_packets_to_send = curr_packets_to_send->next;
-                }
-                sr_arpreq_destroy(&sr->cache, req);
-            }
+            process_arp_reply(sr, arp_hdr, iface);
         }
         else
         {
             printf("---->> Received ARP Packet that is neither reply nor request <----\n");
-            return;
         }
-
     }
     /* Check if Ethertype is IP */
     else if (e_hdr->ether_type == htons(ethertype_ip))
@@ -151,7 +128,6 @@ void sr_handlepacket(struct sr_instance* sr,
          * */
         printf("---->> Packet type IP <----\n");
         struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
-        /*print_hdr_ip((uint8_t*)ip_hdr);*/
 
         /* Check packet checksum */
         uint16_t ip_checksum_temp = ip_hdr->ip_sum;
@@ -322,6 +298,44 @@ void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, str
     free(reply_packet_arp_hdr);
     free(reply_packet);
 } /* end reply_to_arp_req */
+
+void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struct sr_if* iface)
+{
+    /* When servicing an arp reply that gives us an IP->MAC mapping
+       req = arpcache_insert(ip, mac)
+
+    if req:
+    send all packets on the req->packets linked list
+    arpreq_destroy(req) */
+    struct sr_arpreq* req = sr_arpcache_insert(&sr->cache, arp_hdr->ar_sha, arp_hdr->ar_sip);
+    if(req)
+    {
+        struct sr_packet* curr_packet_to_send = req->packets;
+
+        printf("---->> ARP Reply send outstanding packet <----\n");
+        while(curr_packet_to_send != NULL)
+        {
+            struct sr_ethernet_hdr* curr_e_hdr = (struct sr_ethernet_hdr*)curr_packet_to_send->buf;
+
+            /* Ethernet header - Destination Address */
+            /*memcpy(curr_e_hdr->ether_dhost, arp_hdr->ar_sha, ETHER_ADDR_LEN);*/
+            int i;
+            for(i = 0; i < ETHER_ADDR_LEN; i++)
+                curr_e_hdr->ether_dhost[i] = arp_hdr->ar_sha[i];
+
+            /* Ethernet header - Source Address */
+            /*memcpy(curr_e_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);*/
+            for(i = 0; i < ETHER_ADDR_LEN; i++)
+                curr_e_hdr->ether_shost[i] = (uint8_t)iface->addr[i];
+
+            /* Send packet */
+            sr_send_packet(sr, curr_packet_to_send->buf, curr_packet_to_send->len, iface->name);
+
+            curr_packet_to_send = curr_packet_to_send->next;
+        }
+        sr_arpreq_destroy(&sr->cache, req);
+    }
+}
 
 /*
   Check routing table, perform LPM
