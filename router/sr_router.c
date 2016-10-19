@@ -139,12 +139,7 @@ void sr_handlepacket(struct sr_instance* sr,
         }
         ip_hdr->ip_sum = ip_checksum_temp;
 
-        if(ip_hdr->ip_ttl <=1)
-        {
-            printf("---->> Send ICMP (type 11, code 0) <------------------------------\n");
-            send_icmp(sr, packet, iface->name, 11, 0);
-            return;
-        }
+
 
         /* Check if it is for me - find interfaces name */
         struct sr_if* curr_if = sr->if_list;
@@ -154,36 +149,25 @@ void sr_handlepacket(struct sr_instance* sr,
             {
                 printf("---->> Received IP packet for me <----\n");
 
-                /* Received ICMP packet */
-                if(ip_hdr->ip_p == 1)
-                {
-                    struct sr_icmp_t3_hdr* icmp_packet_icmp_header = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-                    /* Check icmp packet checksum */
-                    uint16_t icmp_sum_temp = icmp_packet_icmp_header->icmp_sum;
-                    icmp_packet_icmp_header->icmp_sum = 0;
-                    if(icmp_sum_temp != cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr)))
-                    {
-                        printf("---->> Checksum not good %u<----\n",cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr)));
-                        return;
-                    }
-                    icmp_packet_icmp_header->icmp_sum = icmp_sum_temp;
+                handle_ip_packet_for_router(sr, packet, ip_hdr, iface);
 
-                    /* Received Echo request */
-                    if(icmp_packet_icmp_header->icmp_type == 8)
-                    {
-                        /* Send Echo reply */
-                        send_icmp(sr, packet, iface->name, 0, 0);
-                    }
-                    return;
-                }
 
-                /* Received ICMP packet UDP or TCP */
-                if(ip_hdr->ip_p == 6 || ip_hdr->ip_p == 17)
-                {
-                    /* Send ICMP port unreachable */
-                    send_icmp(sr, packet, iface->name, 3, 3);
-                    return;
-                }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                 return;
             }
@@ -193,7 +177,14 @@ void sr_handlepacket(struct sr_instance* sr,
         /* It is not for me */
         if(curr_if == NULL)
         {
-            printf("---->> Its for not me<----\n");
+            printf("---->> It's not for me <----\n");
+
+            if(ip_hdr->ip_ttl <= 1)
+            {
+                printf("---->> Send ICMP (type 11, code 0) <------------------------------\n");
+                send_icmp(sr, packet, iface->name, 11, 0);
+                return;
+            }
 
             /* Decrement the TTL by 1, and recompute the packet checksum over the modified header. */
             ip_hdr->ip_ttl--;
@@ -334,6 +325,47 @@ void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struc
             curr_packet_to_send = curr_packet_to_send->next;
         }
         sr_arpreq_destroy(&sr->cache, req);
+    }
+}
+
+void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
+{
+    /*https://tools.ietf.org/html/rfc1812#section-4.2.2.9*/
+    /*if(ip_hdr->ip_ttl < 1)
+    {
+        printf("---->> Send ICMP (type 11, code 0) <------------------------------\n");
+        send_icmp(sr, packet, iface->name, 11, 0);
+        return;
+    }*/
+
+    /* Received ICMP packet */
+    if(ip_hdr->ip_p == htons(ip_protocol_icmp))
+    {
+        struct sr_icmp_t3_hdr* icmp_packet_icmp_header = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+        /* Check icmp packet checksum */
+        uint16_t icmp_sum_temp = icmp_packet_icmp_header->icmp_sum;
+        icmp_packet_icmp_header->icmp_sum = 0;
+        if(icmp_sum_temp != cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr)))
+        {
+            printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr)));
+            return;
+        }
+        icmp_packet_icmp_header->icmp_sum = icmp_sum_temp;
+
+        /* Received Echo request */
+        if(icmp_packet_icmp_header->icmp_type == 8)
+        {
+            /* Send Echo reply */
+            send_icmp(sr, packet, iface->name, 0, 0);
+        }
+        return;
+    }
+
+    /* Received ICMP packet UDP or TCP */
+    if(ip_hdr->ip_p == htons(ip_protocol_tcp) || ip_hdr->ip_p == htons(ip_protocol_udp))
+    {
+        /* Send ICMP port unreachable */
+        send_icmp(sr, packet, iface->name, 3, 3);
     }
 }
 
