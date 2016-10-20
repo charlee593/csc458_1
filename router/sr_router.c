@@ -282,19 +282,19 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
     /* Received ICMP packet */
     if(ip_hdr->ip_p == htons(ip_protocol_icmp))
     {
-        struct sr_icmp_t3_hdr* icmp_packet_icmp_header = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+        struct sr_icmp_t3_hdr* icmp_packet_icmp_hdr = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
         /* Check icmp packet checksum */
-        uint16_t icmp_sum_temp = icmp_packet_icmp_header->icmp_sum;
-        icmp_packet_icmp_header->icmp_sum = 0;
-        if(icmp_sum_temp != cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr)))
+        uint16_t icmp_sum_temp = icmp_packet_icmp_hdr->icmp_sum;
+        icmp_packet_icmp_hdr->icmp_sum = 0;
+        if(icmp_sum_temp != cksum(icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr)))
         {
-            printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr)));
+            printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr)));
             return;
         }
-        icmp_packet_icmp_header->icmp_sum = icmp_sum_temp;
+        icmp_packet_icmp_hdr->icmp_sum = icmp_sum_temp;
 
         /* Received Echo request */
-        if(icmp_packet_icmp_header->icmp_type == 8)
+        if(icmp_packet_icmp_hdr->icmp_type == 8)
         {
             /* Send Echo reply */
             send_icmp(sr, packet, iface->name, 0, 0);
@@ -415,9 +415,9 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
     struct sr_ethernet_hdr* received_packet_e_hdr = (struct sr_ethernet_hdr*)received_packet;
     struct sr_ip_hdr* received_packet_ip_hdr = (struct sr_ip_hdr*)(received_packet + sizeof(struct sr_ethernet_hdr));
 
-    struct sr_ethernet_hdr* icmp_packet_ethernet_header = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
-    struct sr_ip_hdr* icmp_packet_ip_header = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
-    struct sr_icmp_t3_hdr* icmp_packet_icmp_header = ((struct sr_icmp_t3_hdr*)malloc(sizeof(struct sr_icmp_t3_hdr)));
+    struct sr_ethernet_hdr* icmp_packet_eth_hdr = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
+    struct sr_ip_hdr* icmp_packet_ip_hdr = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
+    struct sr_icmp_t3_hdr* icmp_packet_icmp_hdr = ((struct sr_icmp_t3_hdr*)malloc(sizeof(struct sr_icmp_t3_hdr)));
     struct sr_if* iface = sr_get_interface(sr, from_interface);
 
     if(iface == 0)
@@ -427,66 +427,73 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
     }
 
     /* Ethernet destination address */
-    memcpy(icmp_packet_ethernet_header->ether_dhost, received_packet_e_hdr->ether_shost, ETHER_ADDR_LEN);
+    /*memcpy(icmp_packet_eth_hdr->ether_dhost, received_packet_e_hdr->ether_shost, ETHER_ADDR_LEN);*/
+    int i;
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        icmp_packet_eth_hdr->ether_dhost[i] = received_packet_e_hdr->ether_shost[i];
+
     /* Ethernet source address */
-    memcpy(icmp_packet_ethernet_header->ether_shost, iface->addr, ETHER_ADDR_LEN);
+    /*memcpy(icmp_packet_eth_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);*/
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        icmp_packet_eth_hdr->ether_shost[i] = (uint8_t)iface->addr[i];
+
     /* Ethernet header - Type */
-    icmp_packet_ethernet_header->ether_type = htons(ethertype_ip);
+    icmp_packet_eth_hdr->ether_type = htons(ethertype_ip);
 
     /* ip header - version */
-    icmp_packet_ip_header->ip_hl = 5;
+    icmp_packet_ip_hdr->ip_hl = 5;
     /* ip header - ihl */
-    icmp_packet_ip_header->ip_v = 4;
+    icmp_packet_ip_hdr->ip_v = 4;
     /* ip header - Differentiated services */
-    icmp_packet_ip_header->ip_tos = htonl(0);
+    icmp_packet_ip_hdr->ip_tos = htonl(0);
     /* ip header - total length */
-    icmp_packet_ip_header->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
+    icmp_packet_ip_hdr->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
     /* ip header - identification */
-    icmp_packet_ip_header->ip_id = 0;
+    icmp_packet_ip_hdr->ip_id = 0;
     /* ip header - fragment offset field */
-    icmp_packet_ip_header->ip_off = 0;
+    icmp_packet_ip_hdr->ip_off = 0;
     /* ip header -  time to live */
     if(type == 11)
     {
-        icmp_packet_ip_header->ip_ttl = 100; 		/* Time exceeded (type 11, code 0) */
+        icmp_packet_ip_hdr->ip_ttl = 100; 		/* Time exceeded (type 11, code 0) */
     }
     else
     {
-        icmp_packet_ip_header->ip_ttl = 64;
+        icmp_packet_ip_hdr->ip_ttl = 64;
     }
     /* ip header - protocol */
-    icmp_packet_ip_header->ip_p = 1;
+    icmp_packet_ip_hdr->ip_p = 1;
     /* ip header - checksum */
-    icmp_packet_ip_header->ip_sum = 0;
+    icmp_packet_ip_hdr->ip_sum = 0;
     /* ip header - source and dest address */
-    icmp_packet_ip_header->ip_src = iface->ip;
-    icmp_packet_ip_header->ip_dst = received_packet_ip_hdr->ip_src;
+    icmp_packet_ip_hdr->ip_src = iface->ip;
+    icmp_packet_ip_hdr->ip_dst = received_packet_ip_hdr->ip_src;
     /* ip header - checksum */
-    icmp_packet_ip_header->ip_sum = cksum(icmp_packet_ip_header, sizeof(struct sr_ip_hdr));
+    icmp_packet_ip_hdr->ip_sum = cksum(icmp_packet_ip_hdr, sizeof(struct sr_ip_hdr));
 
     /* icmp header - type */
-    icmp_packet_icmp_header->icmp_type = type;
+    icmp_packet_icmp_hdr->icmp_type = type;
     /* icmp header - code */
-    icmp_packet_icmp_header->icmp_code = code;
+    icmp_packet_icmp_hdr->icmp_code = code;
     /* icmp header - checksum */
-    icmp_packet_icmp_header->icmp_sum = 0;
+    icmp_packet_icmp_hdr->icmp_sum = 0;
     /* icmp header - data */
-    memcpy(icmp_packet_icmp_header->data, received_packet_ip_hdr, ICMP_DATA_SIZE);
+    memcpy(icmp_packet_icmp_hdr->data, received_packet_ip_hdr, ICMP_DATA_SIZE);
     /* icmp header - checksum */
-    icmp_packet_icmp_header->icmp_sum = cksum(icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr));
+    icmp_packet_icmp_hdr->icmp_sum = cksum(icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
 
     /* Create packet */
     uint8_t* icmp_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr)));
-    memcpy(icmp_packet, icmp_packet_ethernet_header, sizeof(struct sr_ethernet_hdr));
-    memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr), icmp_packet_ip_header, sizeof(struct sr_ip_hdr));
-    memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp_packet_icmp_header, sizeof(struct sr_icmp_t3_hdr));
+    memcpy(icmp_packet, icmp_packet_eth_hdr, sizeof(struct sr_ethernet_hdr));
+    memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr), icmp_packet_ip_hdr, sizeof(struct sr_ip_hdr));
+    memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
 
     /* Send packet */
     sr_send_packet(sr, icmp_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr), iface->name);
 
-    free(icmp_packet_ethernet_header);
-    free(icmp_packet_ip_header);
-    free(icmp_packet_icmp_header);
+    free(icmp_packet_eth_hdr);
+    free(icmp_packet_ip_hdr);
+    free(icmp_packet_icmp_hdr);
     free(icmp_packet);
 
 }/* end send_icmp */
