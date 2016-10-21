@@ -279,7 +279,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
     }*/
 
     /* Received ICMP packet */
-    if(ip_hdr->ip_p == htons(ip_protocol_icmp))
+    if(ip_hdr->ip_p == ip_protocol_icmp)
     {
         struct sr_icmp_t0_hdr* icmp_hdr = (struct sr_icmp_t0_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
         /* Check ICMP packet checksum */
@@ -310,7 +310,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
     }
 
     /* Received ICMP packet UDP or TCP */
-    if(ip_hdr->ip_p == htons(ip_protocol_tcp) || ip_hdr->ip_p == htons(ip_protocol_udp))
+    if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp)
     {
         /* Send ICMP port unreachable */
         send_icmp(sr, packet, iface->name, 3, 3);
