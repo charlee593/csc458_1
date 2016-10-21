@@ -475,13 +475,13 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip)
     while(curr_rt_entry != NULL)
     {
         /* Check if current routing table has longer mask than longest known so far */
-        if(curr_rt_entry->mask.s_addr > longest_match)
+        if(get_mask_len(curr_rt_entry->mask.s_addr) > longest_match)
         {
             /* Now check that we actually have a match */
-            if((ip_to_in_addr.s_addr & ntohl(curr_rt_entry->mask.s_addr)) ==
-               (ntohl(curr_rt_entry->dest.s_addr) & ntohl(curr_rt_entry->mask.s_addr)))
+            if((ip_to_in_addr.s_addr & curr_rt_entry->mask.s_addr) ==
+               (ntohl(curr_rt_entry->dest.s_addr) & curr_rt_entry->mask.s_addr))
             {
-                longest_match = curr_rt_entry->mask.s_addr;
+                longest_match = get_mask_len(curr_rt_entry->mask.s_addr);
                 result = sr_get_interface(sr, curr_rt_entry->interface);
             }
         }
@@ -489,6 +489,19 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip)
     }
     return result;
 }/* end lpm */
+
+int get_mask_len(uint32_t mask)
+{
+    int len = 0;
+    uint32_t tmp = 0x80000000;
+
+    while(tmp != 0 && (tmp & mask) != 0)
+    {
+        tmp >>= 1;
+        len++;
+    }
+    return len;
+}
 
 /*
     Generate the following ICMP messages (including the ICMP header checksum)
