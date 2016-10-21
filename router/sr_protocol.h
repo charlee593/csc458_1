@@ -85,6 +85,7 @@ static const uint8_t IP_INIT_TTL = 64;
 
 
 #define ICMP_ECHO_HDR_SIZE 8
+#define ICMP_DEST_UNREACHABLE_HDR_SIZE 8
 #define ICMP_T0_MAX_DATA_SIZE 548
 
 

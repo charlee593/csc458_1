@@ -364,7 +364,7 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     else
     {
         struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, iface->name);
-        handle_arpreq(req, sr);
+        send_arpreq(req,sr);
     }
 }
 
@@ -465,7 +465,6 @@ void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char
 {
     struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
     struct sr_ip_hdr* received_ip_hdr = (struct sr_ip_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr));
-    struct sr_icmp_t3_hdr* received_icmp_hdr = (struct sr_icmp_t3_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
 
     struct sr_ethernet_hdr* reply_eth_hdr = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
     struct sr_ip_hdr* reply_ip_hdr = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
@@ -512,7 +511,14 @@ void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char
     reply_ip_hdr->ip_sum = 0;
 
     /* IP header - source and dest addresses */
-    reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;                                                   /* DO LPM !!!!!!!!!! */
+    if(code == icmp_code_net_unreachable)                                                           /* DO LPM !!!!!!!!!! */
+    {
+        reply_ip_hdr->ip_src = iface->ip;
+    }
+    else
+    {
+        reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;
+    }
     reply_ip_hdr->ip_dst = received_ip_hdr->ip_src;
 
     /* IP header - checksum */
@@ -528,12 +534,10 @@ void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char
     reply_icmp_hdr->icmp_sum = 0;
 
     /* ICMP header - data */
-    /*memcpy(reply_icmp_hdr->data, received_icmp_hdr->data, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES - ICMP_ECHO_HDR_SIZE);*/
-    memcpy(reply_icmp_hdr->data, reply_ip_hdr, IP_IHL_BYTES);
-    memcpy(reply_icmp_hdr->data + IP_IHL_BYTES, received_ip_hdr, 8);
+    memcpy(reply_icmp_hdr->data, received_ip_hdr, ICMP_DATA_SIZE);
 
     /* ICMP header - checksum */
-    reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES);
+    reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
 
     /* Create packet */
     uint8_t* frame_to_send = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr)));
