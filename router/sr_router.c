@@ -285,9 +285,9 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
         /* Check ICMP packet checksum */
         uint16_t icmp_sum_temp = icmp_hdr->icmp_sum;
         icmp_hdr->icmp_sum = 0;
-        if(icmp_sum_temp != cksum(icmp_hdr, sizeof(struct sr_icmp_t0_hdr)))
+        if(icmp_sum_temp != cksum(icmp_hdr, ICMP_T8_HDR_SIZE))
         {
-            printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_hdr, sizeof(struct sr_icmp_t0_hdr)));
+            printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_hdr, ICMP_T8_HDR_SIZE));
             return;
         }
         icmp_hdr->icmp_sum = icmp_sum_temp;
