@@ -285,7 +285,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
         /* Check ICMP packet checksum */
         uint16_t icmp_sum_temp = icmp_hdr->icmp_sum;
         icmp_hdr->icmp_sum = 0;
-        int icmp_len = ip_hdr->ip_len - IP_IHL_BYTES;
+        int icmp_len = ntohs(ip_hdr->ip_len) - IP_IHL_BYTES;
         if(icmp_sum_temp != cksum(icmp_hdr, icmp_len))
         {
             printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_hdr, icmp_len));
@@ -297,7 +297,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
         if(icmp_hdr->icmp_type == icmp_type_echo_req)
         {
             /* Check minimum total length of the IP packet */
-            if(ip_hdr->ip_len < (4 * ip_hdr->ip_hl + ICMP_ECHO_HDR_SIZE))
+            if(ntohs(ip_hdr->ip_len) < (4 * ip_hdr->ip_hl + ICMP_ECHO_HDR_SIZE))
             {
                 printf("---->> Total length of IP packet is too small for an echo request <----\n");
                 return;
@@ -439,10 +439,10 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
     reply_icmp_hdr->icmp_seq_num = received_icmp_hdr->icmp_seq_num;
 
     /* ICMP header - data */
-    memcpy(reply_icmp_hdr->data, received_icmp_hdr + ICMP_ECHO_HDR_SIZE, reply_ip_hdr->ip_len - IP_IHL_BYTES - ICMP_ECHO_HDR_SIZE);
+    memcpy(reply_icmp_hdr->data, received_icmp_hdr + ICMP_ECHO_HDR_SIZE, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES - ICMP_ECHO_HDR_SIZE);
 
     /* ICMP header - checksum */
-    reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, reply_ip_hdr->ip_len - IP_IHL_BYTES);
+    reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES);
 
     /* Create packet */
     uint8_t* frame_to_send = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr)));
