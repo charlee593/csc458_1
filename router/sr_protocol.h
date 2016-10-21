@@ -97,6 +97,13 @@ enum sr_icmp_type {
   icmp_type_time_exceeded = 11
 };
 
+enum sr_icmp_dest_unreachable_code {
+    icmp_code_net_unreachable = 0,
+    icmp_code_host_unreachable = 1,
+    icmp_code_port_unreachable = 3
+};
+typedef enum sr_icmp_dest_unreachable_code sr_icmp_dest_unreachable_code_t;
+
 
 /* Structure of a ICMP header
  */

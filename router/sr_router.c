@@ -314,7 +314,8 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
     if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp)
     {
         /* Send ICMP port unreachable */
-        send_icmp(sr, packet, iface->name, 3, 3);
+        /*send_icmp(sr, packet, iface->name, 3, 3);*/
+        send_dest_unreachable(sr, packet, iface->name, icmp_code_port_unreachable);
     }
 }
 
@@ -337,7 +338,8 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     if(!match_iface)
     {
         /* Send Destination net unreachable */
-        send_icmp(sr, packet, iface->name, 3, 0);
+        /*send_icmp(sr, packet, iface->name, 3, 0);*/
+        send_dest_unreachable(sr, packet, iface->name, icmp_code_net_unreachable);
         return;
     }
 
@@ -458,6 +460,95 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
     free(reply_icmp_hdr);
     free(frame_to_send);
 } /* end send_echo_reply */
+
+void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char* from_interface, sr_icmp_dest_unreachable_code_t code)
+{
+    struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
+    struct sr_ip_hdr* received_ip_hdr = (struct sr_ip_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr));
+    struct sr_icmp_t3_hdr* received_icmp_hdr = (struct sr_icmp_t3_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+
+    struct sr_ethernet_hdr* reply_eth_hdr = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
+    struct sr_ip_hdr* reply_ip_hdr = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
+    struct sr_icmp_t3_hdr* reply_icmp_hdr = ((struct sr_icmp_t3_hdr*)malloc(sizeof(struct sr_icmp_t3_hdr)));
+    struct sr_if* iface = sr_get_interface(sr, from_interface);
+
+    /* Ethernet destination address */
+    int i;
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_eth_hdr->ether_dhost[i] = received_eth_hdr->ether_shost[i];
+
+    /* Ethernet source address */
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_eth_hdr->ether_shost[i] = (uint8_t)iface->addr[i];
+
+    /* Ethernet header - Type */
+    reply_eth_hdr->ether_type = htons(ethertype_ip);
+
+    /* IP header - ihl */
+    reply_ip_hdr->ip_v = IPv4_VERSION;
+
+    /* IP header - version */
+    reply_ip_hdr->ip_hl = IP_IHL;
+
+    /* IP header - Differentiated services */
+    reply_ip_hdr->ip_tos = 0;
+
+    /* IP header - total length */
+    reply_ip_hdr->ip_len = received_ip_hdr->ip_len;
+
+    /* IP header - identification */
+    reply_ip_hdr->ip_id = IP_ID;
+
+    /* IP header - fragment offset field */
+    reply_ip_hdr->ip_off = htons(IP_DF);
+
+    /* IP header -  time to live */
+    reply_ip_hdr->ip_ttl = IP_INIT_TTL;
+
+    /* IP header - protocol */
+    reply_ip_hdr->ip_p = ip_protocol_icmp;
+
+    /* IP header - checksum */
+    reply_ip_hdr->ip_sum = 0;
+
+    /* IP header - source and dest addresses */
+    reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;                                                   /* DO LPM !!!!!!!!!! */
+    reply_ip_hdr->ip_dst = received_ip_hdr->ip_src;
+
+    /* IP header - checksum */
+    reply_ip_hdr->ip_sum = cksum(reply_ip_hdr, IP_IHL_BYTES);
+
+    /* ICMP header - type */
+    reply_icmp_hdr->icmp_type = icmp_type_dest_unreachable;
+
+    /* ICMP header - code */
+    reply_icmp_hdr->icmp_code = code;
+
+    /* ICMP header - checksum */
+    reply_icmp_hdr->icmp_sum = 0;
+
+    /* ICMP header - data */
+    /*memcpy(reply_icmp_hdr->data, received_icmp_hdr->data, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES - ICMP_ECHO_HDR_SIZE);*/
+    memcpy(reply_icmp_hdr->data, reply_ip_hdr, IP_IHL_BYTES);
+    memcpy(reply_icmp_hdr->data + IP_IHL_BYTES, received_ip_hdr, 8);
+
+    /* ICMP header - checksum */
+    reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES);
+
+    /* Create packet */
+    uint8_t* frame_to_send = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr)));
+    memcpy(frame_to_send, reply_eth_hdr, sizeof(struct sr_ethernet_hdr));
+    memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr), reply_ip_hdr, sizeof(struct sr_ip_hdr));
+    memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), reply_icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
+
+    /* Send packet */
+    sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr), iface->name);
+
+    free(reply_eth_hdr);
+    free(reply_ip_hdr);
+    free(reply_icmp_hdr);
+    free(frame_to_send);
+} /* end send_dest_unreachable */
 
 /*
   Check routing table, perform LPM
