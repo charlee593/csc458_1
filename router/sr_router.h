@@ -72,7 +72,7 @@ void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struc
 void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct sr_ip_hdr* ip_hdr, struct sr_if* iface);
 void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface);
 void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from_interface);
-struct sr_if* lpm(struct sr_instance *sr, struct in_addr target_ip);
+struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip);
 void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_interface, uint8_t type, uint8_t code);
 
 /* -- sr_if.c -- */
