@@ -417,7 +417,7 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
     reply_ip_hdr->ip_sum = 0;
 
     /* IP header - source and dest addresses */
-    reply_ip_hdr->ip_src = iface->ip;                                                   /* DO LPM !!!!!!!!!! */
+    reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;                                                   /* DO LPM !!!!!!!!!! */
     reply_ip_hdr->ip_dst = received_ip_hdr->ip_src;
 
     /* IP header - checksum */
