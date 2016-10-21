@@ -73,6 +73,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
 void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface);
 void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from_interface);
 struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip);
+int get_mask_len(uint32_t mask);
 void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_interface, uint8_t type, uint8_t code);
 
 /* -- sr_if.c -- */
