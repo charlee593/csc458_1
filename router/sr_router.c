@@ -462,19 +462,29 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
 /*
   Check routing table, perform LPM
 */
-struct sr_if* lpm(struct sr_instance *sr, uint32_t ip)
+struct sr_if* lpm(struct sr_instance *sr, struct in_addr target_ip)
 {
     /* Find match interface in routing table LPM */
-    struct sr_rt* curr_routing_entry = sr->routing_table;
-    while(curr_routing_entry != NULL)
+    struct sr_rt* curr_rt_entry = sr->routing_table;
+    int longest_match = -1;
+    struct sr_if* result = NULL;
+
+    while(curr_rt_entry != NULL)
     {
-        if (curr_routing_entry->dest.s_addr == ip)
+        /* Check if current routing table has longer mask than longest known so far */
+        if(curr_rt_entry->mask.s_addr > longest_match)
         {
-            return sr_get_interface(sr, curr_routing_entry->interface);
+            /* Now check that we actually have a match */
+            if((target_ip.s_addr & curr_rt_entry->mask.s_addr) ==
+               (curr_rt_entry->dest.s_addr & curr_rt_entry->mask.s_addr))
+            {
+                longest_match = curr_rt_entry->mask.s_addr;
+                result = sr_get_interface(sr, curr_rt_entry->interface);
+            }
         }
-        curr_routing_entry = curr_routing_entry->next;
+        curr_rt_entry = curr_rt_entry->next;
     }
-    return NULL;
+    return result;
 }/* end lpm */
 
 /*

@@ -32,7 +32,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 {
     time_t now;
     time(&now);
-    if(difftime(now, req->sent) > 1.0)
+    if(difftime(now, req->sent) >= 1.0)
     {
         if(req->times_sent >= 5)
         {
@@ -153,7 +153,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
             }
             else
             {
-                printf("---->> Performing LPM did not return any result. Not resending ARP request <----\n");
+                printf("---->> Performing LPM did not return any result. Not sending ARP request <----\n");
             }
         }
     }
