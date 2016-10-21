@@ -333,7 +333,7 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
 
     /* Forward packet */
-    struct sr_if* match_iface = lpm(sr, ntohl(ip_hdr->ip_dst));
+    struct sr_if* match_iface = lpm(sr, ip_hdr->ip_dst);
     if(!match_iface)
     {
         /* Send Destination net unreachable */
@@ -462,12 +462,15 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
 /*
   Check routing table, perform LPM
 */
-struct sr_if* lpm(struct sr_instance *sr, struct in_addr target_ip)
+struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip)
 {
     /* Find match interface in routing table LPM */
     struct sr_rt* curr_rt_entry = sr->routing_table;
     int longest_match = -1;
     struct sr_if* result = NULL;
+
+    struct in_addr ip_to_in_addr;
+    ip_to_in_addr.s_addr = target_ip;
 
     while(curr_rt_entry != NULL)
     {
@@ -475,7 +478,7 @@ struct sr_if* lpm(struct sr_instance *sr, struct in_addr target_ip)
         if(curr_rt_entry->mask.s_addr > longest_match)
         {
             /* Now check that we actually have a match */
-            if((target_ip.s_addr & curr_rt_entry->mask.s_addr) ==
+            if((ip_to_in_addr.s_addr & curr_rt_entry->mask.s_addr) ==
                (curr_rt_entry->dest.s_addr & curr_rt_entry->mask.s_addr))
             {
                 longest_match = curr_rt_entry->mask.s_addr;
