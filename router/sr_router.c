@@ -439,7 +439,7 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
     reply_icmp_hdr->icmp_seq_num = received_icmp_hdr->icmp_seq_num;
 
     /* ICMP header - data */
-    memcpy(reply_icmp_hdr->data, received_icmp_hdr + ICMP_ECHO_HDR_SIZE, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES - ICMP_ECHO_HDR_SIZE);
+    memcpy(reply_icmp_hdr->data, received_icmp_hdr->data, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES - ICMP_ECHO_HDR_SIZE);
 
     /* ICMP header - checksum */
     reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, ntohs(reply_ip_hdr->ip_len) - IP_IHL_BYTES);
