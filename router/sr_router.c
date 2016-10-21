@@ -139,7 +139,6 @@ void sr_handlepacket(struct sr_instance* sr,
         ip_hdr->ip_sum = ip_checksum_temp;
 
 
-
         /* Check if it is for me - find interfaces name */
         struct sr_if* curr_if = sr->if_list;
         while(curr_if != NULL)
@@ -249,13 +248,11 @@ void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struc
             struct sr_ethernet_hdr* curr_e_hdr = (struct sr_ethernet_hdr*)curr_packet_to_send->buf;
 
             /* Ethernet header - Destination Address */
-            /*memcpy(curr_e_hdr->ether_dhost, arp_hdr->ar_sha, ETHER_ADDR_LEN);*/
             int i;
             for(i = 0; i < ETHER_ADDR_LEN; i++)
                 curr_e_hdr->ether_dhost[i] = arp_hdr->ar_sha[i];
 
             /* Ethernet header - Source Address */
-            /*memcpy(curr_e_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);*/
             for(i = 0; i < ETHER_ADDR_LEN; i++)
                 curr_e_hdr->ether_shost[i] = (uint8_t)iface->addr[i];
 
@@ -338,7 +335,6 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     if(!match_iface)
     {
         /* Send Destination net unreachable */
-        /*send_icmp(sr, packet, iface->name, 3, 0);*/
         send_dest_unreachable(sr, packet, iface->name, icmp_code_net_unreachable);
         return;
     }
@@ -348,7 +344,7 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     {
         printf("---->> Found mac add in cache, forward packet<----\n");
 
-/*                 Forward packet */
+        /* Forward packet */
 
         struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)packet;
 
