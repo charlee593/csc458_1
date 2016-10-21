@@ -333,7 +333,7 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     ip_hdr->ip_sum = cksum(ip_hdr, sizeof(struct sr_ip_hdr));
 
     /* Forward packet */
-    struct sr_if* match_iface = lpm(sr, ip_hdr->ip_dst);
+    struct sr_if* match_iface = lpm(sr, ntohl(ip_hdr->ip_dst));
     if(!match_iface)
     {
         /* Send Destination net unreachable */
