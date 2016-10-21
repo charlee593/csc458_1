@@ -118,16 +118,15 @@ void sr_handlepacket(struct sr_instance* sr,
     /* Check if Ethertype is IP */
     else if (e_hdr->ether_type == htons(ethertype_ip))
     {
-        /* If ICMP
-         *
-         * Echo reply (type 0) It's for me
-         * Destination net unreachable (type 3, code 0) Not for me -> Not match
-         * Destination host unreachable (type 3, code 1) Not for me -> Match -> Miss -> Resent > 5 times
-         * Port unreachable (type 3, code 3) It's for me
-         * Time exceeded (type 11, code 0) It's for me && Not for me
-         * */
         printf("---->> Packet type IP <----\n");
         struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
+
+        /* Check for minimum total length of IP header */
+        if(ip_hdr->ip_hl < IP_IHL)
+        {
+            printf("---->> IP header is smaller than the minimum size allowed <----\n");
+            return;
+        }
 
         /* Check packet checksum */
         uint16_t ip_checksum_temp = ip_hdr->ip_sum;
@@ -282,22 +281,30 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
     /* Received ICMP packet */
     if(ip_hdr->ip_p == htons(ip_protocol_icmp))
     {
-        struct sr_icmp_t3_hdr* icmp_packet_icmp_hdr = (struct sr_icmp_t3_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-        /* Check icmp packet checksum */
-        uint16_t icmp_sum_temp = icmp_packet_icmp_hdr->icmp_sum;
-        icmp_packet_icmp_hdr->icmp_sum = 0;
-        if(icmp_sum_temp != cksum(icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr)))
+        struct sr_icmp_t0_hdr* icmp_hdr = (struct sr_icmp_t0_hdr*)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+        /* Check ICMP packet checksum */
+        uint16_t icmp_sum_temp = icmp_hdr->icmp_sum;
+        icmp_hdr->icmp_sum = 0;
+        if(icmp_sum_temp != cksum(icmp_hdr, sizeof(struct sr_icmp_t0_hdr)))
         {
-            printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr)));
+            printf("---->> Incorrect checksum of ICMP packet %u <----\n", cksum(icmp_hdr, sizeof(struct sr_icmp_t0_hdr)));
             return;
         }
-        icmp_packet_icmp_hdr->icmp_sum = icmp_sum_temp;
+        icmp_hdr->icmp_sum = icmp_sum_temp;
 
         /* Received Echo request */
-        if(icmp_packet_icmp_hdr->icmp_type == 8)
+        if(icmp_hdr->icmp_type == icmp_type_echo_req)
         {
+            /* Check minimum total length of the IP packet */
+            if(ip_hdr->ip_len < (4 * ip_hdr->ip_hl + ICMP_T8_HDR_SIZE))
+            {
+                printf("---->> Total length of IP packet is too small for an echo request <----\n");
+                return;
+            }
+
             /* Send Echo reply */
-            send_icmp(sr, packet, iface->name, 0, 0);
+            /*send_icmp(sr, packet, iface->name, 0, 0);*/
+            send_echo_reply(sr, packet, iface->name);
         }
         return;
     }
@@ -357,6 +364,99 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
         handle_arpreq(req, sr);
     }
 }
+
+void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from_interface)
+{
+    struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
+    struct sr_ip_hdr* received_ip_hdr = (struct sr_ip_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr));
+    struct sr_icmp_t0_hdr* received_icmp_hdr = (struct sr_icmp_t0_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+
+    struct sr_ethernet_hdr* reply_eth_hdr = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
+    struct sr_ip_hdr* reply_ip_hdr = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
+    struct sr_icmp_t0_hdr* reply_icmp_hdr = ((struct sr_icmp_t0_hdr*)malloc(sizeof(struct sr_icmp_t0_hdr)));
+    struct sr_if* iface = sr_get_interface(sr, from_interface);
+
+    /* Ethernet destination address */
+    int i;
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_eth_hdr->ether_dhost[i] = received_eth_hdr->ether_shost[i];
+
+    /* Ethernet source address */
+    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_eth_hdr->ether_shost[i] = (uint8_t)iface->addr[i];
+
+    /* Ethernet header - Type */
+    reply_eth_hdr->ether_type = htons(ethertype_ip);
+
+    /* IP header - ihl */
+    reply_ip_hdr->ip_v = IPv4_VERSION;
+
+    /* IP header - version */
+    reply_ip_hdr->ip_hl = IP_IHL;
+
+    /* IP header - Differentiated services */
+    reply_ip_hdr->ip_tos = 0;
+
+    /* IP header - total length */
+    reply_ip_hdr->ip_len = received_ip_hdr->ip_len;
+
+    /* IP header - identification */
+    reply_ip_hdr->ip_id = IP_ID;
+
+    /* IP header - fragment offset field */
+    reply_ip_hdr->ip_off = htons(IP_DF);
+
+    /* IP header -  time to live */
+    reply_ip_hdr->ip_ttl = IP_TTL;
+
+    /* IP header - protocol */
+    reply_ip_hdr->ip_p = htons(ip_protocol_icmp);
+
+    /* IP header - checksum */
+    reply_ip_hdr->ip_sum = 0;
+
+    /* IP header - source and dest addresses */
+    reply_ip_hdr->ip_src = iface->ip;                                                   /* DO LPM !!!!!!!!!! */
+    reply_ip_hdr->ip_dst = received_ip_hdr->ip_src;
+
+    /* IP header - checksum */
+    reply_ip_hdr->ip_sum = cksum(reply_ip_hdr, IP_IHL_BYTES);
+
+    /* ICMP header - type */
+    reply_icmp_hdr->icmp_type = icmp_type_echo_reply;
+
+    /* ICMP header - code */
+    reply_icmp_hdr->icmp_code = 0;
+
+    /* ICMP header - checksum */
+    reply_icmp_hdr->icmp_sum = 0;
+
+    /* ICMP header - identifier */
+    reply_icmp_hdr->icmp_id = received_icmp_hdr->icmp_id;
+
+    /* ICMP header - sequence number */
+    reply_icmp_hdr->icmp_seq_num = received_icmp_hdr->icmp_seq_num;
+
+    /* ICMP header - data */
+    memcpy(reply_icmp_hdr->data, received_icmp_hdr + ICMP_T8_HDR_SIZE, reply_ip_hdr->ip_len - IP_IHL_BYTES - ICMP_T8_HDR_SIZE);
+
+    /* ICMP header - checksum */
+    reply_icmp_hdr->icmp_sum = cksum(reply_icmp_hdr, ICMP_T0_HDR_SIZE);
+
+    /* Create packet */
+    uint8_t* frame_to_send = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr)));
+    memcpy(frame_to_send, reply_eth_hdr, sizeof(struct sr_ethernet_hdr));
+    memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr), reply_ip_hdr, sizeof(struct sr_ip_hdr));
+    memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), reply_icmp_hdr, sizeof(struct sr_icmp_t0_hdr));
+
+    /* Send packet */
+    sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
+
+    free(reply_eth_hdr);
+    free(reply_ip_hdr);
+    free(reply_icmp_hdr);
+    free(frame_to_send);
+} /* end send_echo_reply */
 
 /*
   Check routing table, perform LPM
@@ -440,19 +540,19 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
     /* Ethernet header - Type */
     icmp_packet_eth_hdr->ether_type = htons(ethertype_ip);
 
-    /* ip header - version */
+    /* IP header - version */
     icmp_packet_ip_hdr->ip_hl = 5;
-    /* ip header - ihl */
+    /* IP header - ihl */
     icmp_packet_ip_hdr->ip_v = 4;
-    /* ip header - Differentiated services */
+    /* IP header - Differentiated services */
     icmp_packet_ip_hdr->ip_tos = htonl(0);
-    /* ip header - total length */
+    /* IP header - total length */
     icmp_packet_ip_hdr->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
-    /* ip header - identification */
+    /* IP header - identification */
     icmp_packet_ip_hdr->ip_id = 0;
-    /* ip header - fragment offset field */
+    /* IP header - fragment offset field */
     icmp_packet_ip_hdr->ip_off = 0;
-    /* ip header -  time to live */
+    /* IP header -  time to live */
     if(type == 11)
     {
         icmp_packet_ip_hdr->ip_ttl = 100; 		/* Time exceeded (type 11, code 0) */
@@ -461,25 +561,25 @@ void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_int
     {
         icmp_packet_ip_hdr->ip_ttl = 64;
     }
-    /* ip header - protocol */
+    /* IP header - protocol */
     icmp_packet_ip_hdr->ip_p = 1;
-    /* ip header - checksum */
+    /* IP header - checksum */
     icmp_packet_ip_hdr->ip_sum = 0;
-    /* ip header - source and dest address */
+    /* IP header - source and dest address */
     icmp_packet_ip_hdr->ip_src = iface->ip;
     icmp_packet_ip_hdr->ip_dst = received_packet_ip_hdr->ip_src;
-    /* ip header - checksum */
+    /* IP header - checksum */
     icmp_packet_ip_hdr->ip_sum = cksum(icmp_packet_ip_hdr, sizeof(struct sr_ip_hdr));
 
-    /* icmp header - type */
+    /* ICMP header - type */
     icmp_packet_icmp_hdr->icmp_type = type;
-    /* icmp header - code */
+    /* ICMP header - code */
     icmp_packet_icmp_hdr->icmp_code = code;
-    /* icmp header - checksum */
+    /* ICMP header - checksum */
     icmp_packet_icmp_hdr->icmp_sum = 0;
-    /* icmp header - data */
+    /* ICMP header - data */
     memcpy(icmp_packet_icmp_hdr->data, received_packet_ip_hdr, ICMP_DATA_SIZE);
-    /* icmp header - checksum */
+    /* ICMP header - checksum */
     icmp_packet_icmp_hdr->icmp_sum = cksum(icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
 
     /* Create packet */

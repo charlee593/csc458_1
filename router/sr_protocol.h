@@ -74,7 +74,29 @@
   #define __BYTE_ORDER __BIG_ENDIAN
   #endif
 #endif
+
+
+static const unsigned int IPv4_VERSION = 4;
+static const unsigned int IP_IHL = 5;
+static const unsigned int IP_IHL_BYTES = 4 * IP_IHL;
+static const uint16_t IP_ID = 0;
+static const uint8_t IP_TTL = 64;
+
+
+
+#define ICMP_T0_HDR_SIZE 8
+#define ICMP_T8_HDR_SIZE 8
+#define ICMP_T0_MAX_DATA_SIZE 548
+
+
 #define ICMP_DATA_SIZE 28
+
+enum sr_icmp_type {
+  icmp_type_echo_reply = 0,
+  icmp_type_dest_unreachable = 3,
+  icmp_type_echo_req = 8,
+  icmp_type_time_exceeded = 11
+};
 
 
 /* Structure of a ICMP header
@@ -87,6 +109,15 @@ struct sr_icmp_hdr {
 } __attribute__ ((packed)) ;
 typedef struct sr_icmp_hdr sr_icmp_hdr_t;
 
+struct sr_icmp_t0_hdr {
+  uint8_t icmp_type;
+  uint8_t icmp_code;
+  uint16_t icmp_sum;
+  uint16_t icmp_id;
+  uint16_t icmp_seq_num;
+  uint8_t data[ICMP_T0_MAX_DATA_SIZE];
+} __attribute__ ((packed)) ;
+typedef struct sr_icmp_t0_hdr sr_icmp_t0_hdr_t;
 
 /* Structure of a type3 ICMP header
  */
@@ -153,7 +184,7 @@ typedef struct sr_ethernet_hdr sr_ethernet_hdr_t;
 enum sr_ip_protocol {
   ip_protocol_icmp = 0x0001,
   ip_protocol_tcp = 0x0006,
-  ip_protocol_udp = 0x0011,
+  ip_protocol_udp = 0x0011
 };
 
 enum sr_ethertype {
