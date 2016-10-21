@@ -407,7 +407,7 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
     reply_ip_hdr->ip_off = htons(IP_DF);
 
     /* IP header -  time to live */
-    reply_ip_hdr->ip_ttl = IP_TTL;
+    reply_ip_hdr->ip_ttl = IP_INIT_TTL;
 
     /* IP header - protocol */
     reply_ip_hdr->ip_p = htons(ip_protocol_icmp);

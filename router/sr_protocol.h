@@ -78,9 +78,9 @@
 
 static const unsigned int IPv4_VERSION = 4;
 static const unsigned int IP_IHL = 5;
-static const unsigned int IP_IHL_BYTES = 4 * IP_IHL;
+static const unsigned int IP_IHL_BYTES = 20;
 static const uint16_t IP_ID = 0;
-static const uint8_t IP_TTL = 64;
+static const uint8_t IP_INIT_TTL = 64;
 
 
 
