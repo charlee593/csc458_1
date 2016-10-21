@@ -470,7 +470,7 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip)
     struct sr_if* result = NULL;
 
     struct in_addr ip_to_in_addr;
-    ip_to_in_addr.s_addr = target_ip;
+    ip_to_in_addr.s_addr = ntohl(target_ip);
 
     while(curr_rt_entry != NULL)
     {
@@ -478,8 +478,8 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip)
         if(curr_rt_entry->mask.s_addr > longest_match)
         {
             /* Now check that we actually have a match */
-            if((ip_to_in_addr.s_addr & curr_rt_entry->mask.s_addr) ==
-               (curr_rt_entry->dest.s_addr & curr_rt_entry->mask.s_addr))
+            if((ip_to_in_addr.s_addr & ntohl(curr_rt_entry->mask.s_addr)) ==
+               (ntohl(curr_rt_entry->dest.s_addr) & ntohl(curr_rt_entry->mask.s_addr)))
             {
                 longest_match = curr_rt_entry->mask.s_addr;
                 result = sr_get_interface(sr, curr_rt_entry->interface);
