@@ -32,7 +32,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 {
     time_t now;
     time(&now);
-    if(difftime(now, req->sent) >= 0.5)
+    if(req->times_sent == 0 || difftime(now, req->sent) >= 1.0)
     {
         if(req->times_sent >= 5)
         {
@@ -44,12 +44,10 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
             struct sr_packet* curr_packet_to_send = req->packets;
             while(curr_packet_to_send != NULL)
             {
-
                 struct sr_ip_hdr* ip_hdr = (struct sr_ip_hdr*)(curr_packet_to_send->buf + sizeof(struct sr_ethernet_hdr));
 
                 struct sr_if* match_iface = lpm(sr, ip_hdr->ip_src);
 
-                /*send_icmp(sr, curr_packet_to_send->buf, match_iface->name, 3, 1);*/
                 send_icmp_t3_or_t11(sr, curr_packet_to_send->buf, match_iface->name, icmp_type_dest_unreachable, icmp_code_host_unreachable);
 
                 curr_packet_to_send = curr_packet_to_send->next;

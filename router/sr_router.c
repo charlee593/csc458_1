@@ -168,6 +168,10 @@ void sr_handlepacket(struct sr_instance* sr,
     }
 } /* end sr_handlepacket */
 
+/*
+ * Method to send an ARP reply back to the sender
+ * that sent an ARP request.
+ */
 void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, struct sr_arp_hdr* arp_hdr, struct sr_if* iface)
 {
     /* Construct an ARP reply and send it back */
@@ -207,7 +211,7 @@ void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, str
         reply_packet_arp_hdr->ar_sha[i] = iface->addr[i];
 
     /* ARP header - Source protocol address */
-    reply_packet_arp_hdr->ar_sip = iface->ip;                                                       /*arp_hdr->ar_tip   ???  */
+    reply_packet_arp_hdr->ar_sip = iface->ip;
 
     /* ARP header - Destination hardware address */
     for(i = 0; i < ETHER_ADDR_LEN; i++)
@@ -229,10 +233,15 @@ void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, str
     free(reply_packet);
 } /* end reply_to_arp_req */
 
+/*
+ * Method to process the ARP reply that was received.
+ * It put's the new IP to MAC mapping into the cache and sends
+ * all outstanding packets waiting for this ARP reply.
+ */
 void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struct sr_if* iface)
 {
     /* When servicing an arp reply that gives us an IP->MAC mapping
-       req = arpcache_insert(ip, mac)
+       req = arpcache_insert(mac, ip)
 
     if req:
     send all packets on the req->packets linked list
@@ -265,16 +274,12 @@ void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struc
     }
 }
 
+/*
+ * Method to deal with IP packets that are meant for one of the router's
+ * interfaces. These may include ICMP, TCP or UDP payload.
+ */
 void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
 {
-    /*https://tools.ietf.org/html/rfc1812#section-4.2.2.9*/
-    /*if(ip_hdr->ip_ttl < 1)
-    {
-        printf("---->> Send ICMP (type 11, code 0) <------------------------------\n");
-        send_icmp(sr, packet, iface->name, 11, 0);
-        return;
-    }*/
-
     /* Received ICMP packet */
     if(ip_hdr->ip_p == ip_protocol_icmp)
     {
@@ -301,8 +306,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, unsign
             }
 
             /* Send Echo reply */
-            /*send_icmp(sr, packet, iface->name, 0, 0);*/
-            send_echo_reply(sr, packet, len, iface->name);
+            send_echo_reply(sr, packet, iface->name);
         }
         return;
     }
@@ -315,12 +319,17 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, unsign
     }
 }
 
+/*
+ * Method to handle the case when the router receives an IP packet
+ * with destination other than any of the router's interfaces.
+ * So these packets need to be forwarded and any error cases
+ * must be handled.
+ */
 void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
 {
     if(ip_hdr->ip_ttl <= 1)
     {
         printf("---->> Send ICMP (type 11, code 0) <----\n");
-        /*send_icmp(sr, packet, iface->name, 11, 0);*/
         send_icmp_t3_or_t11(sr, packet, iface->name, icmp_type_time_exceeded, 0);
         return;
     }
@@ -359,12 +368,16 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     }
     else
     {
+        /* Put the ARP request into the queue and handle the new request */
         struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, iface->name);
         handle_arpreq(req, sr);
     }
 }
 
-void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned int len, char* from_interface)
+/*
+ * Method to send an echo reply back to the sender.
+ */
+void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from_interface)
 {
     struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
     struct sr_ip_hdr* received_ip_hdr = (struct sr_ip_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr));
@@ -415,7 +428,7 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
     reply_ip_hdr->ip_sum = 0;
 
     /* IP header - source and dest addresses */
-    reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;                                                   /* DO LPM !!!!!!!!!! */
+    reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;
     reply_ip_hdr->ip_dst = received_ip_hdr->ip_src;
 
     /* IP header - checksum */
@@ -448,73 +461,19 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
     memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr), reply_ip_hdr, sizeof(struct sr_ip_hdr));
     memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), reply_icmp_hdr, sizeof(struct sr_icmp_t0_hdr));
 
-
-
-
-
-
-
-    /* Send packet */
+    /*Send packet*/
     sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
 
     free(reply_eth_hdr);
     free(reply_ip_hdr);
     free(reply_icmp_hdr);
     free(frame_to_send);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*     Check if ARP request is required
-    struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, received_ip_hdr->ip_src);
-    if(entry)
-    {
-         Ethernet destination address
-        memcpy(reply_eth_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
-        for(i = 0; i < ETHER_ADDR_LEN; i++)
-            reply_eth_hdr->ether_dhost[i] = entry->mac[i];
-
-         Send packet
-        sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
-
-        free(entry);
-
-        free(reply_eth_hdr);
-        free(reply_ip_hdr);
-        free(reply_icmp_hdr);
-        free(frame_to_send);
-    }
-    else
-    {
-        struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, received_ip_hdr->ip_src, received_frame, len, iface->name);
-        handle_arpreq(req, sr);
-    }*/
-
-
-
-
-
-
-
-
-
-
 } /* end send_echo_reply */
 
+/*
+ * Method to send both ICMP type 3 and type 11 messages back
+ * in the corresponding error cases.
+ */
 void send_icmp_t3_or_t11(struct sr_instance* sr, uint8_t* received_frame, char* from_interface, sr_icmp_type_t type, sr_icmp_dest_unreachable_code_t code)
 {
     struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
@@ -565,7 +524,7 @@ void send_icmp_t3_or_t11(struct sr_instance* sr, uint8_t* received_frame, char* 
     reply_ip_hdr->ip_sum = 0;
 
     /* IP header - source and dest addresses */
-    if(code == icmp_code_net_unreachable || code == icmp_code_host_unreachable)                                 /* DO LPM !!!!!!!!!! */
+    if(code == icmp_code_net_unreachable || code == icmp_code_host_unreachable)
     {
         reply_ip_hdr->ip_src = iface->ip;
     }
@@ -586,6 +545,10 @@ void send_icmp_t3_or_t11(struct sr_instance* sr, uint8_t* received_frame, char* 
 
     /* ICMP header - checksum */
     reply_icmp_hdr->icmp_sum = 0;
+
+    /* Clear unused fields to 0 */
+    reply_icmp_hdr->unused = 0;
+    reply_icmp_hdr->next_mtu = 0;
 
     /* ICMP header - data */
     memcpy(reply_icmp_hdr->data, received_ip_hdr, ICMP_DATA_SIZE);
@@ -639,6 +602,9 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip)
     return result;
 }/* end lpm */
 
+/*
+ * Compute and return the length of a given mask.
+ */
 int get_mask_len(uint32_t mask)
 {
     int len = 0;
@@ -651,125 +617,3 @@ int get_mask_len(uint32_t mask)
     }
     return len;
 }
-
-/*
-    Generate the following ICMP messages (including the ICMP header checksum)
-    in response to the sending host under the following conditions:
-
-    Echo reply (type 0)
-    ** Sent in response to an echo request (ping) to one of the router’s
-       interfaces. (This is only for echo requests to any of the router’s IPs.
-       An echo request sent elsewhere should be forwarded to the next hop
-       address as usual).
-
-    Destination net unreachable (type 3, code 0)
-    ** Sent if there is a non-existent route to the destination IP
-       (no matching entry in routing table when forwarding an IP packet).
-
-	Destination host unreachable (type 3, code 1)
-    ** Sent if five ARP requests were sent to the next-hop IP without a
-       response.
-
-	Port unreachable (type 3, code 3)
-    ** Sent if an IP packet containing a UDP or TCP payload is sent to one
-       of the router’s interfaces. This is needed for traceroute to work.
-
-	Time exceeded (type 11, code 0)
-    ** Sent if an IP packet is discarded during processing because the TTL
-       field is 0. This is also needed for traceroute to work.
-
-	The source address of an ICMP message can be the source address of any
-	of the incoming interfaces, as specified in RFC 792.
-	As mentioned above, the only incoming ICMP message destined towards the
-	router’s IPs that you have to explicitly process are ICMP echo requests.
-	You may want to create additional structs for ICMP messages for
-	convenience, but make sure to use the packed attribute so that the
-	compiler doesn’t try to align the fields in the struct to word boundaries.
-*/
-void send_icmp(struct sr_instance *sr, uint8_t * received_packet, char* from_interface, uint8_t type, uint8_t code)
-{
-    struct sr_ethernet_hdr* received_packet_e_hdr = (struct sr_ethernet_hdr*)received_packet;
-    struct sr_ip_hdr* received_packet_ip_hdr = (struct sr_ip_hdr*)(received_packet + sizeof(struct sr_ethernet_hdr));
-
-    struct sr_ethernet_hdr* icmp_packet_eth_hdr = ((struct sr_ethernet_hdr*)malloc(sizeof(struct sr_ethernet_hdr)));
-    struct sr_ip_hdr* icmp_packet_ip_hdr = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
-    struct sr_icmp_t3_hdr* icmp_packet_icmp_hdr = ((struct sr_icmp_t3_hdr*)malloc(sizeof(struct sr_icmp_t3_hdr)));
-    struct sr_if* iface = sr_get_interface(sr, from_interface);
-
-    if(iface == 0)
-    {
-        printf("---->> Interface %s not found. <----\n", from_interface);
-        return;
-    }
-
-    /* Ethernet destination address */
-    /*memcpy(icmp_packet_eth_hdr->ether_dhost, received_packet_e_hdr->ether_shost, ETHER_ADDR_LEN);*/
-    int i;
-    for(i = 0; i < ETHER_ADDR_LEN; i++)
-        icmp_packet_eth_hdr->ether_dhost[i] = received_packet_e_hdr->ether_shost[i];
-
-    /* Ethernet source address */
-    /*memcpy(icmp_packet_eth_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);*/
-    for(i = 0; i < ETHER_ADDR_LEN; i++)
-        icmp_packet_eth_hdr->ether_shost[i] = (uint8_t)iface->addr[i];
-
-    /* Ethernet header - Type */
-    icmp_packet_eth_hdr->ether_type = htons(ethertype_ip);
-
-    /* IP header - version */
-    icmp_packet_ip_hdr->ip_hl = 5;
-    /* IP header - ihl */
-    icmp_packet_ip_hdr->ip_v = 4;
-    /* IP header - Differentiated services */
-    icmp_packet_ip_hdr->ip_tos = htonl(0);
-    /* IP header - total length */
-    icmp_packet_ip_hdr->ip_len = htons(sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
-    /* IP header - identification */
-    icmp_packet_ip_hdr->ip_id = 0;
-    /* IP header - fragment offset field */
-    icmp_packet_ip_hdr->ip_off = 0;
-    /* IP header -  time to live */
-    if(type == 11)
-    {
-        icmp_packet_ip_hdr->ip_ttl = 100; 		/* Time exceeded (type 11, code 0) */
-    }
-    else
-    {
-        icmp_packet_ip_hdr->ip_ttl = 64;
-    }
-    /* IP header - protocol */
-    icmp_packet_ip_hdr->ip_p = 1;
-    /* IP header - checksum */
-    icmp_packet_ip_hdr->ip_sum = 0;
-    /* IP header - source and dest address */
-    icmp_packet_ip_hdr->ip_src = iface->ip;
-    icmp_packet_ip_hdr->ip_dst = received_packet_ip_hdr->ip_src;
-    /* IP header - checksum */
-    icmp_packet_ip_hdr->ip_sum = cksum(icmp_packet_ip_hdr, sizeof(struct sr_ip_hdr));
-
-    /* ICMP header - type */
-    icmp_packet_icmp_hdr->icmp_type = type;
-    /* ICMP header - code */
-    icmp_packet_icmp_hdr->icmp_code = code;
-    /* ICMP header - checksum */
-    icmp_packet_icmp_hdr->icmp_sum = 0;
-    /* ICMP header - data */
-    memcpy(icmp_packet_icmp_hdr->data, received_packet_ip_hdr, ICMP_DATA_SIZE);
-    /* ICMP header - checksum */
-    icmp_packet_icmp_hdr->icmp_sum = cksum(icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
-
-    /* Create packet */
-    uint8_t* icmp_packet = ((uint8_t*)malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr)));
-    memcpy(icmp_packet, icmp_packet_eth_hdr, sizeof(struct sr_ethernet_hdr));
-    memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr), icmp_packet_ip_hdr, sizeof(struct sr_ip_hdr));
-    memcpy(icmp_packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp_packet_icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
-
-    /* Send packet */
-    sr_send_packet(sr, icmp_packet, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr), iface->name);
-
-    free(icmp_packet_eth_hdr);
-    free(icmp_packet_ip_hdr);
-    free(icmp_packet_icmp_hdr);
-    free(icmp_packet);
-
-}/* end send_icmp */
