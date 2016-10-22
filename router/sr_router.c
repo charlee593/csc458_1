@@ -638,6 +638,9 @@ struct sr_if* lpm(struct sr_instance *sr, uint32_t target_ip)
     return result;
 }/* end lpm */
 
+/*
+ * Compute and return the length of a given mask.
+ */
 int get_mask_len(uint32_t mask)
 {
     int len = 0;
