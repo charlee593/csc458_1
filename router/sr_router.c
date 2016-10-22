@@ -320,7 +320,6 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     if(ip_hdr->ip_ttl <= 1)
     {
         printf("---->> Send ICMP (type 11, code 0) <----\n");
-        /*send_icmp(sr, packet, iface->name, 11, 0);*/
         send_icmp_t3_or_t11(sr, packet, iface->name, icmp_type_time_exceeded, 0);
         return;
     }
@@ -377,8 +376,8 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
 
     /* Ethernet destination address */
     int i;
-    for(i = 0; i < ETHER_ADDR_LEN; i++)
-        reply_eth_hdr->ether_dhost[i] = received_eth_hdr->ether_shost[i];
+/*    for(i = 0; i < ETHER_ADDR_LEN; i++)
+        reply_eth_hdr->ether_dhost[i] = received_eth_hdr->ether_shost[i];*/
 
     /* Ethernet source address */
     for(i = 0; i < ETHER_ADDR_LEN; i++)
@@ -454,13 +453,13 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
 
 
 
-    /* Send packet */
+ /*    Send packet
     sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
 
     free(reply_eth_hdr);
     free(reply_ip_hdr);
     free(reply_icmp_hdr);
-    free(frame_to_send);
+    free(frame_to_send);*/
 
 
 
@@ -479,16 +478,16 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
 
 
 
-/*     Check if ARP request is required
+    /*Check if ARP request is required*/
     struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, received_ip_hdr->ip_src);
     if(entry)
     {
-         Ethernet destination address
+        /*Ethernet destination address*/
         memcpy(reply_eth_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
-        for(i = 0; i < ETHER_ADDR_LEN; i++)
-            reply_eth_hdr->ether_dhost[i] = entry->mac[i];
+        /*for(i = 0; i < ETHER_ADDR_LEN; i++)
+            reply_eth_hdr->ether_dhost[i] = entry->mac[i];*/
 
-         Send packet
+        /*Send packet*/
         sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
 
         free(entry);
@@ -500,9 +499,10 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
     }
     else
     {
-        struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, received_ip_hdr->ip_src, received_frame, len, iface->name);
+        struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, received_ip_hdr->ip_src, frame_to_send,
+                sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
         handle_arpreq(req, sr);
-    }*/
+    }
 
 
 
