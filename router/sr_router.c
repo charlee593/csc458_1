@@ -84,12 +84,12 @@ void sr_handlepacket(struct sr_instance* sr,
         return;
     }
 
-    printf("*** -> Received packet of length %d \n",len);
+    printf("---->> Received packet of length %d <----\n", len);
 
     struct sr_ethernet_hdr* e_hdr = (struct sr_ethernet_hdr*)packet;
     struct sr_if* iface = sr_get_interface(sr, interface);
 
-    printf("---->> Interface %s<----\n", interface);
+    printf("---->> Interface %s <----\n", interface);
 
     /* Check if Ethertype is ARP */
     if (e_hdr->ether_type == htons(ethertype_arp))
@@ -97,7 +97,7 @@ void sr_handlepacket(struct sr_instance* sr,
         /* Get the ARP header */
         struct sr_arp_hdr* arp_hdr = (struct sr_arp_hdr*)(packet + sizeof(struct sr_ethernet_hdr));
 
-        printf("---->> Packet type ARP %u, %u<----\n",(unsigned)htons(e_hdr->ether_type), (unsigned)e_hdr->ether_type);
+        printf("---->> Packet type ARP %u, %u <----\n",(unsigned)htons(e_hdr->ether_type), (unsigned)e_hdr->ether_type);
         printf("---->> An ARP packet protocol type %u, %u <----\n", arp_hdr->ar_pro, htons(arp_hdr->ar_pro));
 
         /* ARP request to me */
@@ -147,7 +147,7 @@ void sr_handlepacket(struct sr_instance* sr,
             {
                 printf("---->> Received IP packet for me <----\n");
 
-                handle_ip_packet_for_router(sr, packet, ip_hdr, iface);
+                handle_ip_packet_for_router(sr, packet, len, ip_hdr, iface);
 
                 return;
             }
@@ -265,7 +265,7 @@ void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struc
     }
 }
 
-void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
+void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
 {
     /*https://tools.ietf.org/html/rfc1812#section-4.2.2.9*/
     /*if(ip_hdr->ip_ttl < 1)
@@ -302,7 +302,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
 
             /* Send Echo reply */
             /*send_icmp(sr, packet, iface->name, 0, 0);*/
-            send_echo_reply(sr, packet, iface->name);
+            send_echo_reply(sr, packet, len, iface->name);
         }
         return;
     }
@@ -311,8 +311,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, struct
     if(ip_hdr->ip_p == ip_protocol_tcp || ip_hdr->ip_p == ip_protocol_udp)
     {
         /* Send ICMP port unreachable */
-        /*send_icmp(sr, packet, iface->name, 3, 3);*/
-        send_dest_unreachable(sr, packet, iface->name, icmp_code_port_unreachable);
+        send_icmp_t3_or_t11(sr, packet, iface->name, icmp_type_dest_unreachable, icmp_code_port_unreachable);
     }
 }
 
@@ -321,7 +320,8 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     if(ip_hdr->ip_ttl <= 1)
     {
         printf("---->> Send ICMP (type 11, code 0) <----\n");
-        send_icmp(sr, packet, iface->name, 11, 0);
+        /*send_icmp(sr, packet, iface->name, 11, 0);*/
+        send_icmp_t3_or_t11(sr, packet, iface->name, icmp_type_time_exceeded, 0);
         return;
     }
 
@@ -335,14 +335,14 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     if(!match_iface)
     {
         /* Send Destination net unreachable */
-        send_dest_unreachable(sr, packet, iface->name, icmp_code_net_unreachable);
+        send_icmp_t3_or_t11(sr, packet, iface->name, icmp_type_dest_unreachable, icmp_code_net_unreachable);
         return;
     }
 
     struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, ip_hdr->ip_dst);
     if(entry)
     {
-        printf("---->> Found mac add in cache, forward packet<----\n");
+        printf("---->> Found mac add in cache, forward packet <----\n");
 
         /* Forward packet */
 
@@ -364,7 +364,7 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     }
 }
 
-void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from_interface)
+void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned int len, char* from_interface)
 {
     struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
     struct sr_ip_hdr* received_ip_hdr = (struct sr_ip_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr));
@@ -448,6 +448,12 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
     memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr), reply_ip_hdr, sizeof(struct sr_ip_hdr));
     memcpy(frame_to_send + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), reply_icmp_hdr, sizeof(struct sr_icmp_t0_hdr));
 
+
+
+
+
+
+
     /* Send packet */
     sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
 
@@ -455,9 +461,61 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from
     free(reply_ip_hdr);
     free(reply_icmp_hdr);
     free(frame_to_send);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*     Check if ARP request is required
+    struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, received_ip_hdr->ip_src);
+    if(entry)
+    {
+         Ethernet destination address
+        memcpy(reply_eth_hdr->ether_dhost, entry->mac, ETHER_ADDR_LEN);
+        for(i = 0; i < ETHER_ADDR_LEN; i++)
+            reply_eth_hdr->ether_dhost[i] = entry->mac[i];
+
+         Send packet
+        sr_send_packet(sr, frame_to_send, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t0_hdr), iface->name);
+
+        free(entry);
+
+        free(reply_eth_hdr);
+        free(reply_ip_hdr);
+        free(reply_icmp_hdr);
+        free(frame_to_send);
+    }
+    else
+    {
+        struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, received_ip_hdr->ip_src, received_frame, len, iface->name);
+        send_arpreq(req, sr);
+    }*/
+
+
+
+
+
+
+
+
+
+
 } /* end send_echo_reply */
 
-void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char* from_interface, sr_icmp_dest_unreachable_code_t code)
+void send_icmp_t3_or_t11(struct sr_instance* sr, uint8_t* received_frame, char* from_interface, sr_icmp_type_t type, sr_icmp_dest_unreachable_code_t code)
 {
     struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
     struct sr_ip_hdr* received_ip_hdr = (struct sr_ip_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr));
@@ -507,7 +565,7 @@ void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char
     reply_ip_hdr->ip_sum = 0;
 
     /* IP header - source and dest addresses */
-    if(code == icmp_code_net_unreachable)                                                           /* DO LPM !!!!!!!!!! */
+    if(code == icmp_code_net_unreachable || code == icmp_code_host_unreachable)                                 /* DO LPM !!!!!!!!!! */
     {
         reply_ip_hdr->ip_src = iface->ip;
     }
@@ -521,7 +579,7 @@ void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char
     reply_ip_hdr->ip_sum = cksum(reply_ip_hdr, IP_IHL_BYTES);
 
     /* ICMP header - type */
-    reply_icmp_hdr->icmp_type = icmp_type_dest_unreachable;
+    reply_icmp_hdr->icmp_type = type;
 
     /* ICMP header - code */
     reply_icmp_hdr->icmp_code = code;
@@ -548,7 +606,7 @@ void send_dest_unreachable(struct sr_instance* sr, uint8_t* received_frame, char
     free(reply_ip_hdr);
     free(reply_icmp_hdr);
     free(frame_to_send);
-} /* end send_dest_unreachable */
+} /* end send_icmp_t3_or_t11 */
 
 /*
   Check routing table, perform LPM

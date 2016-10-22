@@ -97,6 +97,7 @@ enum sr_icmp_type {
   icmp_type_echo_req = 8,
   icmp_type_time_exceeded = 11
 };
+typedef enum sr_icmp_type sr_icmp_type_t;
 
 enum sr_icmp_dest_unreachable_code {
     icmp_code_net_unreachable = 0,

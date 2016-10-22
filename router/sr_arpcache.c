@@ -50,7 +50,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
                 struct sr_if* match_iface = lpm(sr, ip_hdr->ip_src);
 
                 /*send_icmp(sr, curr_packet_to_send->buf, match_iface->name, 3, 1);*/
-                send_dest_unreachable(sr, curr_packet_to_send->buf, match_iface->name, icmp_code_host_unreachable);
+                send_icmp_t3_or_t11(sr, curr_packet_to_send->buf, match_iface->name, icmp_type_dest_unreachable, icmp_code_host_unreachable);
 
                 curr_packet_to_send = curr_packet_to_send->next;
             }
@@ -59,7 +59,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         }
         else
         {
-            void send_arpreq(req, sr);
+            send_arpreq(req, sr);
         }
     }
 } /* end handle_arpreq */
