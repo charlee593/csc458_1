@@ -360,7 +360,7 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     else
     {
         struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, iface->name);
-        send_arpreq(req,sr);
+        handle_arpreq(req, sr);
     }
 }
 
@@ -501,7 +501,7 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
     else
     {
         struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, received_ip_hdr->ip_src, received_frame, len, iface->name);
-        send_arpreq(req, sr);
+        handle_arpreq(req, sr);
     }*/
 
 
