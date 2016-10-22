@@ -30,9 +30,10 @@
    --*/
 void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 {
-    time_t now;
-    time(&now);
-    if(difftime(now, req->sent) >= 0.5)
+  	time_t now = 1;
+	time(&now);
+	double diff = difftime(now, req->sent);
+	if(diff >= 1.0)
     {
         if(req->times_sent >= 5)
         {
