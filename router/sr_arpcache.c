@@ -62,7 +62,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         }
         else
         {
-        	printf("---->> Send ARP request<----\n");
+        	printf("---->> Send ARP request %d<----\n", req->times_sent);
 			struct sr_if* match_iface = lpm(sr, req->ip);
 			if(match_iface)
 			{
