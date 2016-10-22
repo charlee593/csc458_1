@@ -63,9 +63,6 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
         else
         {
         	printf("---->> Send ARP request %d<----\n", req->times_sent);
-			req->sent = now;
-			req->times_sent = 1 + req->times_sent;
-
 			struct sr_if* match_iface = lpm(sr, req->ip);
 			if(match_iface)
 			{
@@ -135,8 +132,10 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 				free(request_packet_ethernet_header);
 				free(request_packet_arp_header);
 				free(request_packet);
-
 			}
+
+			req->sent = now;
+			req->times_sent = req->times_sent + 1;
         }
 
     }
