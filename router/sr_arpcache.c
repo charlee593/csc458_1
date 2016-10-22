@@ -135,6 +135,7 @@ void handle_arpreq(struct sr_arpreq *req, struct sr_instance *sr)
 			}
 
 			req->sent = now;
+
 			req->times_sent = req->times_sent + 1;
         }
 
