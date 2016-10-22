@@ -168,6 +168,10 @@ void sr_handlepacket(struct sr_instance* sr,
     }
 } /* end sr_handlepacket */
 
+/*
+ * Method to send an ARP reply back to the sender
+ * that sent an ARP request.
+ */
 void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, struct sr_arp_hdr* arp_hdr, struct sr_if* iface)
 {
     /* Construct an ARP reply and send it back */
@@ -207,7 +211,7 @@ void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, str
         reply_packet_arp_hdr->ar_sha[i] = iface->addr[i];
 
     /* ARP header - Source protocol address */
-    reply_packet_arp_hdr->ar_sip = iface->ip;                                                       /*arp_hdr->ar_tip   ???  */
+    reply_packet_arp_hdr->ar_sip = iface->ip;
 
     /* ARP header - Destination hardware address */
     for(i = 0; i < ETHER_ADDR_LEN; i++)
@@ -229,10 +233,15 @@ void reply_to_arp_req(struct sr_instance* sr, struct sr_ethernet_hdr* e_hdr, str
     free(reply_packet);
 } /* end reply_to_arp_req */
 
+/*
+ * Method to process the ARP reply that was received.
+ * It put's the new IP to MAC mapping into the cache and sends
+ * all outstanding packets waiting for this ARP reply.
+ */
 void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struct sr_if* iface)
 {
     /* When servicing an arp reply that gives us an IP->MAC mapping
-       req = arpcache_insert(ip, mac)
+       req = arpcache_insert(mac, ip)
 
     if req:
     send all packets on the req->packets linked list
@@ -265,16 +274,12 @@ void process_arp_reply(struct sr_instance* sr, struct sr_arp_hdr* arp_hdr, struc
     }
 }
 
+/*
+ * Method to deal with IP packets that are meant for one of the router's
+ * interfaces. These may include ICMP, TCP or UDP payload.
+ */
 void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
 {
-    /*https://tools.ietf.org/html/rfc1812#section-4.2.2.9*/
-    /*if(ip_hdr->ip_ttl < 1)
-    {
-        printf("---->> Send ICMP (type 11, code 0) <------------------------------\n");
-        send_icmp(sr, packet, iface->name, 11, 0);
-        return;
-    }*/
-
     /* Received ICMP packet */
     if(ip_hdr->ip_p == ip_protocol_icmp)
     {
@@ -301,7 +306,7 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, unsign
             }
 
             /* Send Echo reply */
-            send_echo_reply(sr, packet, len, iface->name);
+            send_echo_reply(sr, packet, iface->name);
         }
         return;
     }
@@ -314,6 +319,12 @@ void handle_ip_packet_for_router(struct sr_instance* sr, uint8_t* packet, unsign
     }
 }
 
+/*
+ * Method to handle the case when the router receives an IP packet
+ * with destination other than any of the router's interfaces.
+ * So these packets need to be forwarded and any error cases
+ * must be handled.
+ */
 void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsigned int len, struct sr_ip_hdr* ip_hdr, struct sr_if* iface)
 {
     if(ip_hdr->ip_ttl <= 1)
@@ -357,12 +368,16 @@ void handle_ip_packet_to_forward(struct sr_instance* sr, uint8_t* packet, unsign
     }
     else
     {
+        /* Put the ARP request into the queue and handle the new request */
         struct sr_arpreq* req = sr_arpcache_queuereq(&sr->cache, ip_hdr->ip_dst, packet, len, iface->name);
         handle_arpreq(req, sr);
     }
 }
 
-void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned int len, char* from_interface)
+/*
+ * Method to send an echo reply back to the sender.
+ */
+void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, char* from_interface)
 {
     struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
     struct sr_ip_hdr* received_ip_hdr = (struct sr_ip_hdr*)(received_frame + sizeof(struct sr_ethernet_hdr));
@@ -372,6 +387,29 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
     struct sr_ip_hdr* reply_ip_hdr = ((struct sr_ip_hdr*)malloc(sizeof(struct sr_ip_hdr)));
     struct sr_icmp_t0_hdr* reply_icmp_hdr = ((struct sr_icmp_t0_hdr*)malloc(sizeof(struct sr_icmp_t0_hdr)));
     struct sr_if* iface = sr_get_interface(sr, from_interface);
+
+
+
+
+
+
+
+
+    /* Perform LPM to send echo reply */
+/*    struct sr_if* iface = lpm(sr, received_ip_hdr->ip_src);
+    if(!iface)
+    {
+         Send Destination net unreachable
+        printf("---->> LPM didn't return any result, so can't send echo reply back to sender <----\n");
+        return;
+    }*/
+
+
+
+
+
+
+
 
     /* Ethernet destination address */
     int i;
@@ -413,7 +451,7 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
     reply_ip_hdr->ip_sum = 0;
 
     /* IP header - source and dest addresses */
-    reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;                                                   /* DO LPM !!!!!!!!!! */
+    reply_ip_hdr->ip_src = received_ip_hdr->ip_dst;
     reply_ip_hdr->ip_dst = received_ip_hdr->ip_src;
 
     /* IP header - checksum */
@@ -477,8 +515,8 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
 
 
 
-/*    Check if ARP request is required
-    struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, received_ip_hdr->ip_src);
+    /*Check if ARP request is required*/
+/*    struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, received_ip_hdr->ip_src);
     if(entry)
     {
         Ethernet destination address
@@ -514,6 +552,10 @@ void send_echo_reply(struct sr_instance* sr, uint8_t* received_frame, unsigned i
 
 } /* end send_echo_reply */
 
+/*
+ * Method to send both ICMP type 3 and type 11 messages back
+ * in the corresponding error cases.
+ */
 void send_icmp_t3_or_t11(struct sr_instance* sr, uint8_t* received_frame, char* from_interface, sr_icmp_type_t type, sr_icmp_dest_unreachable_code_t code)
 {
     struct sr_ethernet_hdr* received_eth_hdr = (struct sr_ethernet_hdr*)received_frame;
@@ -564,7 +606,7 @@ void send_icmp_t3_or_t11(struct sr_instance* sr, uint8_t* received_frame, char* 
     reply_ip_hdr->ip_sum = 0;
 
     /* IP header - source and dest addresses */
-    if(code == icmp_code_net_unreachable || code == icmp_code_host_unreachable)                                 /* DO LPM !!!!!!!!!! */
+    if(code == icmp_code_net_unreachable || code == icmp_code_host_unreachable)
     {
         reply_ip_hdr->ip_src = iface->ip;
     }
@@ -585,6 +627,10 @@ void send_icmp_t3_or_t11(struct sr_instance* sr, uint8_t* received_frame, char* 
 
     /* ICMP header - checksum */
     reply_icmp_hdr->icmp_sum = 0;
+
+    /* Clear unused fields to 0 */
+    reply_icmp_hdr->unused = 0;
+    reply_icmp_hdr->next_mtu = 0;
 
     /* ICMP header - data */
     memcpy(reply_icmp_hdr->data, received_ip_hdr, ICMP_DATA_SIZE);
